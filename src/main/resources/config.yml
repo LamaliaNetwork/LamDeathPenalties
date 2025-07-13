@@ -1,0 +1,58 @@
+# LamDeathPenalties Configuration
+
+# Recovery settings
+recovery:
+  mode: "real-time"  # Options: "real-time" or "active-time"
+  interval-hours: 1
+
+# Soul point settings
+soul-points:
+  max: 10
+  starting: 10
+
+# Drop rates per soul point level (0-10)
+drop-rates:
+  10:
+    item-drop: 0      # % of items to drop from inventory
+    hotbar-drop: false # Include hotbar in drops
+    armor-drop: false  # Include armor in drops
+  9:
+    item-drop: 10
+    hotbar-drop: false
+    armor-drop: false
+  8:
+    item-drop: 20
+    hotbar-drop: false
+    armor-drop: false
+  7:
+    item-drop: 30
+    hotbar-drop: true   # Hotbar becomes vulnerable
+    armor-drop: false
+  6:
+    item-drop: 40
+    hotbar-drop: true
+    armor-drop: false
+  5:
+    item-drop: 50
+    hotbar-drop: true
+    armor-drop: false
+  4:
+    item-drop: 60
+    hotbar-drop: true
+    armor-drop: true    # Armor becomes vulnerable
+  3:
+    item-drop: 70
+    hotbar-drop: true
+    armor-drop: true
+  2:
+    item-drop: 80
+    hotbar-drop: true
+    armor-drop: true
+  1:
+    item-drop: 90
+    hotbar-drop: true
+    armor-drop: true
+  0:
+    item-drop: 100
+    hotbar-drop: true
+    armor-drop: true    # Everything drops

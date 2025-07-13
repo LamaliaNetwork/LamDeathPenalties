@@ -1,0 +1,23 @@
+name: LamDeathPenalties
+version: '0.1'
+main: org.yusaki.lamDeathPenalties.LamDeathPenalties
+api-version: '1.21'
+folia-supported: true
+softdepend: [PlaceholderAPI]
+
+commands:
+  soulpoints:
+    description: Manage soul points
+    usage: /soulpoints [set|give|check] [player] [amount]
+    aliases: [sp, souls]
+
+permissions:
+  soulpoints.check.others:
+    description: Check other players' soul points
+    default: op
+  soulpoints.admin:
+    description: Admin commands for soul points
+    default: op
+  soulpoints.bypass:
+    description: Bypass all death penalties
+    default: op
