@@ -44,6 +44,9 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
             case "give":
             case "add":
                 return handleGiveCommand(sender, args);
+            case "take":
+            case "remove":
+                return handleTakeCommand(sender, args);
             case "check":
             case "view":
                 return handleCheckCommand(sender, args);
@@ -125,6 +128,47 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
             
             sender.sendMessage("§aGave " + actualGiven + " soul points to " + target.getName() + " (now " + newPoints + "/" + maxPoints + ")");
             target.sendMessage("§a✦ You received " + actualGiven + " soul point" + (actualGiven != 1 ? "s" : "") + "! Current: " + newPoints + "/" + maxPoints);
+            
+        } catch (NumberFormatException e) {
+            sender.sendMessage("§cInvalid number: " + args[2]);
+        }
+        
+        return true;
+    }
+    
+    private boolean handleTakeCommand(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("soulpoints.admin")) {
+            sender.sendMessage("§cYou don't have permission to use this command.");
+            return true;
+        }
+        
+        if (args.length < 3) {
+            sender.sendMessage("§cUsage: /soulpoints take <player> <amount>");
+            return true;
+        }
+        
+        Player target = Bukkit.getPlayer(args[1]);
+        if (target == null) {
+            sender.sendMessage("§cPlayer not found: " + args[1]);
+            return true;
+        }
+        
+        try {
+            int amount = Integer.parseInt(args[2]);
+            int currentPoints = soulPointsManager.getSoulPoints(target.getUniqueId());
+            int maxPoints = plugin.getConfig().getInt("soul-points.max", 10);
+            
+            if (amount <= 0) {
+                sender.sendMessage("§cAmount must be positive.");
+                return true;
+            }
+            
+            soulPointsManager.removeSoulPoints(target.getUniqueId(), amount);
+            int newPoints = soulPointsManager.getSoulPoints(target.getUniqueId());
+            int actualTaken = currentPoints - newPoints;
+            
+            sender.sendMessage("§cTook " + actualTaken + " soul points from " + target.getName() + " (now " + newPoints + "/" + maxPoints + ")");
+            target.sendMessage("§c✦ You lost " + actualTaken + " soul point" + (actualTaken != 1 ? "s" : "") + "! Current: " + newPoints + "/" + maxPoints);
             
         } catch (NumberFormatException e) {
             sender.sendMessage("§cInvalid number: " + args[2]);
@@ -248,6 +292,7 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
         if (sender.hasPermission("soulpoints.admin")) {
             sender.sendMessage("§f/soulpoints set <player> <amount> §7- Set soul points");
             sender.sendMessage("§f/soulpoints give <player> <amount> §7- Give soul points");
+            sender.sendMessage("§f/soulpoints take <player> <amount> §7- Take soul points");
             sender.sendMessage("§f/soulpoints reload §7- Reload config");
         }
         
@@ -261,7 +306,7 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
         if (args.length == 1) {
             List<String> subCommands = Arrays.asList("check");
             if (sender.hasPermission("soulpoints.admin")) {
-                subCommands = Arrays.asList("set", "give", "check", "reload");
+                subCommands = Arrays.asList("set", "give", "take", "check", "reload");
             }
             
             for (String subCommand : subCommands) {
@@ -269,14 +314,14 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
                     completions.add(subCommand);
                 }
             }
-        } else if (args.length == 2 && (args[0].equalsIgnoreCase("set") || args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("check"))) {
+        } else if (args.length == 2 && (args[0].equalsIgnoreCase("set") || args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("take") || args[0].equalsIgnoreCase("check"))) {
             // Player name completion
             for (Player player : Bukkit.getOnlinePlayers()) {
                 if (player.getName().toLowerCase().startsWith(args[1].toLowerCase())) {
                     completions.add(player.getName());
                 }
             }
-        } else if (args.length == 3 && (args[0].equalsIgnoreCase("set") || args[0].equalsIgnoreCase("give"))) {
+        } else if (args.length == 3 && (args[0].equalsIgnoreCase("set") || args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("take"))) {
             // Number suggestions
             int maxPoints = plugin.getConfig().getInt("soul-points.max", 10);
             for (int i = 1; i <= maxPoints; i++) {

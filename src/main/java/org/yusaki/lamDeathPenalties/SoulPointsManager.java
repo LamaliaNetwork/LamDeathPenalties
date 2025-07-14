@@ -57,6 +57,11 @@ public class SoulPointsManager {
         setSoulPoints(playerId, current + points);
     }
     
+    public void removeSoulPoints(UUID playerId, int points) {
+        int current = getSoulPoints(playerId);
+        setSoulPoints(playerId, current - points);
+    }
+    
     public void removeSoulPoint(UUID playerId) {
         int current = getSoulPoints(playerId);
         setSoulPoints(playerId, current - 1);
