@@ -5,7 +5,10 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.yusaki.lamDeathPenalties.api.LamDeathPenaltiesAPI;
+import org.yusaki.lamDeathPenalties.api.LamDeathPenaltiesAPIImpl;
 
 public final class LamDeathPenalties extends JavaPlugin implements Listener {
     
@@ -44,6 +47,11 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
             new SoulPointsPlaceholder(this, soulPointsManager, recoveryScheduler).register();
             getLogger().info("PlaceholderAPI integration enabled!");
         }
+        
+        // Register public API
+        LamDeathPenaltiesAPIImpl api = new LamDeathPenaltiesAPIImpl(this);
+        getServer().getServicesManager().register(LamDeathPenaltiesAPI.class, api, this, ServicePriority.Normal);
+        getLogger().info("LamDeathPenalties API registered!");
         
         getLogger().info("LamDeathPenalties enabled with FoliaLib support!");
     }

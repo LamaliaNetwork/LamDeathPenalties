@@ -6,6 +6,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.yusaki.lamDeathPenalties.api.events.SoulPointsChangeEvent;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -86,7 +87,7 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
             
-            soulPointsManager.setSoulPoints(target.getUniqueId(), amount);
+            soulPointsManager.setSoulPointsWithReason(target.getUniqueId(), amount, SoulPointsChangeEvent.ChangeReason.COMMAND);
             messageManager.sendMessage(sender, "set-success-sender", MessageManager.placeholders(
                 "player", target.getName(),
                 "amount", String.valueOf(amount),

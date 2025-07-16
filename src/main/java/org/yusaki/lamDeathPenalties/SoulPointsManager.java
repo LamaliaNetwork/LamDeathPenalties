@@ -5,6 +5,9 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.entity.Player;
+import org.yusaki.lamDeathPenalties.api.events.SoulPointsChangeEvent;
+import org.yusaki.lamDeathPenalties.api.events.SoulPointsChangedEvent;
 
 import java.io.*;
 import java.lang.reflect.Type;
@@ -63,8 +66,47 @@ public class SoulPointsManager {
     }
     
     public void removeSoulPoint(UUID playerId) {
-        int current = getSoulPoints(playerId);
-        setSoulPoints(playerId, current - 1);
+        removeSoulPointWithReason(playerId, SoulPointsChangeEvent.ChangeReason.DEATH);
+    }
+    
+    public void removeSoulPointWithReason(UUID playerId, SoulPointsChangeEvent.ChangeReason reason) {
+        Player player = Bukkit.getPlayer(playerId);
+        if (player != null) {
+            setSoulPointsWithReason(playerId, getSoulPoints(playerId) - 1, reason);
+        } else {
+            int current = getSoulPoints(playerId);
+            setSoulPoints(playerId, current - 1);
+        }
+    }
+    
+    public void setSoulPointsWithReason(UUID playerId, int points, SoulPointsChangeEvent.ChangeReason reason) {
+        Player player = Bukkit.getPlayer(playerId);
+        if (player == null) {
+            setSoulPoints(playerId, points);
+            return;
+        }
+        
+        int oldPoints = getSoulPoints(playerId);
+        int maxPoints = plugin.getConfig().getInt("soul-points.max", 10);
+        int clampedPoints = Math.max(0, Math.min(points, maxPoints));
+        
+        if (oldPoints == clampedPoints) {
+            return;
+        }
+        
+        SoulPointsChangeEvent changeEvent = new SoulPointsChangeEvent(player, oldPoints, clampedPoints, reason);
+        Bukkit.getPluginManager().callEvent(changeEvent);
+        
+        if (changeEvent.isCancelled()) {
+            return;
+        }
+        
+        setSoulPoints(playerId, changeEvent.getNewSoulPoints());
+        
+        SoulPointsChangedEvent changedEvent = new SoulPointsChangedEvent(
+            player, oldPoints, changeEvent.getNewSoulPoints(), reason
+        );
+        Bukkit.getPluginManager().callEvent(changedEvent);
     }
     
     public DropRates getDropRates(int soulPoints) {
