@@ -28,13 +28,17 @@ public class DeathListener implements Listener {
     public void onPlayerDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
         
-        // Check if keepInventory is enabled - if so, skip all plugin logic
-        if (Boolean.parseBoolean(player.getWorld().getGameRuleValue("keepInventory"))) {
+        // Check if player has bypass permission - if so, behave like keepInventory
+        if (player.hasPermission("soulpoints.bypass")) {
+            event.setKeepInventory(true);
+            event.setKeepLevel(true);
+            event.getDrops().clear();
+            event.setDroppedExp(0);
             return;
         }
         
-        // Check if player has bypass permission
-        if (player.hasPermission("soulpoints.bypass")) {
+        // Check if keepInventory is enabled - if so, skip all plugin logic
+        if (Boolean.parseBoolean(player.getWorld().getGameRuleValue("keepInventory"))) {
             return;
         }
         
@@ -283,24 +287,28 @@ public class DeathListener implements Listener {
     private void sendDeathNotification(Player player, int oldSoulPoints, int currentSoulPoints, 
                                       ItemDropResult dropResult) {
         int maxSoulPoints = plugin.getConfig().getInt("soul-points.max", 10);
+        MessageManager messageManager = plugin.getMessageManager();
         
-        player.sendMessage("§8§m                                                ");
-        player.sendMessage("§c☠ Death Penalty Applied");
-        player.sendMessage("");
-        player.sendMessage("§7Soul Points: §f" + oldSoulPoints + " §7→ §c" + currentSoulPoints + "§7/§f" + maxSoulPoints);
+        // Prepare placeholders
+        Map<String, String> placeholders = MessageManager.placeholders(
+            "old_points", String.valueOf(oldSoulPoints),
+            "current_points", String.valueOf(currentSoulPoints),
+            "max_points", String.valueOf(maxSoulPoints),
+            "items_dropped", String.valueOf(dropResult.itemsDropped),
+            "total_items", String.valueOf(dropResult.totalItems)
+        );
         
         // Show item loss summary
         if (dropResult.totalItems > 0) {
             double dropPercentage = (double) dropResult.itemsDropped / dropResult.totalItems * 100;
-            player.sendMessage("§7Items Lost: §c" + dropResult.itemsDropped + "§7/§f" + dropResult.totalItems + 
-                             " §7(§c" + String.format("%.1f", dropPercentage) + "%§7)");
+            placeholders.put("drop_percentage", String.format("%.1f", dropPercentage));
             
             // Show specific items dropped (top 3 most common)
             if (!dropResult.droppedItems.isEmpty()) {
                 List<Map.Entry<org.bukkit.Material, Integer>> sortedDrops = new ArrayList<>(dropResult.droppedItems.entrySet());
                 sortedDrops.sort((a, b) -> b.getValue().compareTo(a.getValue()));
                 
-                StringBuilder itemList = new StringBuilder("§7Lost: ");
+                StringBuilder itemList = new StringBuilder();
                 int shown = 0;
                 for (Map.Entry<org.bukkit.Material, Integer> entry : sortedDrops) {
                     if (shown >= 3) break;
@@ -311,24 +319,31 @@ public class DeathListener implements Listener {
                 if (sortedDrops.size() > 3) {
                     itemList.append("§7, and ").append(sortedDrops.size() - 3).append(" more types");
                 }
-                player.sendMessage(itemList.toString());
+                placeholders.put("item_list", itemList.toString());
+            } else {
+                placeholders.put("item_list", "");
             }
+            
+            // Show recovery info
+            if (currentSoulPoints < maxSoulPoints) {
+                String recoveryMode = plugin.getConfig().getString("recovery.mode", "real-time");
+                int recoveryHours = plugin.getConfig().getInt("recovery.interval-hours", 1);
+                placeholders.put("hours", String.valueOf(recoveryHours));
+                placeholders.put("mode", recoveryMode);
+            }
+            
+            messageManager.sendMessageList(player, "death-penalty", placeholders);
         } else {
-            player.sendMessage("§7Items Lost: §aNo items dropped");
+            // Show recovery info for no-items case
+            if (currentSoulPoints < maxSoulPoints) {
+                String recoveryMode = plugin.getConfig().getString("recovery.mode", "real-time");
+                int recoveryHours = plugin.getConfig().getInt("recovery.interval-hours", 1);
+                placeholders.put("hours", String.valueOf(recoveryHours));
+                placeholders.put("mode", recoveryMode);
+            }
+            
+            messageManager.sendMessageList(player, "death-penalty-no-items", placeholders);
         }
-        
-        // Experience always drops on death (default Minecraft behavior)
-        player.sendMessage("§7Experience: §cAll experience dropped");
-        
-        // Show recovery info
-        if (currentSoulPoints < maxSoulPoints) {
-            String recoveryMode = plugin.getConfig().getString("recovery.mode", "real-time");
-            int recoveryHours = plugin.getConfig().getInt("recovery.interval-hours", 1);
-            player.sendMessage("");
-            player.sendMessage("§7Recovery: §f+1 soul point every " + recoveryHours + "h §7(" + recoveryMode + ")");
-        }
-        
-        player.sendMessage("§8§m                                                ");
     }
     
     private String formatMaterialName(org.bukkit.Material material) {

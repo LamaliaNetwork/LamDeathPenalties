@@ -81,7 +81,12 @@ public class RecoveryScheduler {
                         
                         // Notify player if they gained soul points
                         if (recoveryCount > 0) {
-                            player.sendMessage("§a✦ You recovered " + recoveryCount + " soul point" + (recoveryCount > 1 ? "s" : "") + "! Current: " + soulPointsManager.getSoulPoints(playerId) + "/" + maxSoulPoints);
+                            plugin.getMessageManager().sendMessageList(player, "recovery-gained", MessageManager.placeholders(
+                                "count", String.valueOf(recoveryCount),
+                                "plural", recoveryCount > 1 ? "s" : "",
+                                "current_points", String.valueOf(soulPointsManager.getSoulPoints(playerId)),
+                                "max_points", String.valueOf(maxSoulPoints)
+                            ));
                         }
                     }
                 }

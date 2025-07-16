@@ -56,3 +56,97 @@ drop-rates:
     item-drop: 100
     hotbar-drop: true
     armor-drop: true    # Everything drops
+
+# Message configuration
+messages:
+  # Death penalty message (shown when player dies)
+  death-penalty:
+    - "§8§m                                                "
+    - "§c☠ Death Penalty Applied"
+    - ""
+    - "§7Soul Points: §f{old_points} §7→ §c{current_points}§7/§f{max_points}"
+    - "§7Items Lost: §c{items_dropped}§7/§f{total_items} §7(§c{drop_percentage}%§7)"
+    - "§7Lost: {item_list}"
+    - "§7Experience: §cAll experience dropped"
+    - ""
+    - "§7Recovery: §f+1 soul point every {hours}h §7({mode})"
+    - "§8§m                                                "
+  
+  # Alternative when no items are dropped
+  death-penalty-no-items:
+    - "§8§m                                                "
+    - "§c☠ Death Penalty Applied"
+    - ""
+    - "§7Soul Points: §f{old_points} §7→ §c{current_points}§7/§f{max_points}"
+    - "§7Items Lost: §aNo items dropped"
+    - "§7Experience: §cAll experience dropped"
+    - ""
+    - "§7Recovery: §f+1 soul point every {hours}h §7({mode})"
+    - "§8§m                                                "
+  
+  # Recovery notification
+  recovery-gained:
+    - "§a✦ You recovered {count} soul point{plural}! Current: {current_points}/{max_points}"
+  
+  # Soul points display
+  soul-points-display:
+    - "§8§m                                                "
+    - "§6✦ Soul Points - {player}"
+    - ""
+    - "§f{progress_bar} §7({current_points}/{max_points})"
+    - ""
+    - "§7Current Penalties:"
+    - "  §cItem Drop: §f{item_drop}%"
+    - "  §cHotbar Drop: §f{hotbar_drop}"
+    - "  §cArmor Drop: §f{armor_drop}"
+    - ""
+    - "§7Next Recovery: §f{recovery_time}"
+    - "§8§m                                                "
+  
+  # Help menu
+  help-menu:
+    - "§8§m                                                "
+    - "§6✦ Soul Points Commands"
+    - ""
+    - "§f/soulpoints §7- Check your soul points"
+    - "§f/soulpoints check <player> §7- Check someone's soul points"
+    - "§f/soulpoints set <player> <amount> §7- Set soul points"
+    - "§f/soulpoints give <player> <amount> §7- Give soul points"
+    - "§f/soulpoints take <player> <amount> §7- Take soul points"
+    - "§f/soulpoints reload §7- Reload config"
+    - "§8§m                                                "
+  
+  # Single line messages
+  player-only: "§cThis command can only be used by players."
+  no-permission: "§cYou don't have permission to use this command."
+  no-permission-check-others: "§cYou don't have permission to check other players' soul points."
+  player-not-found: "§cPlayer not found: {player}"
+  invalid-number: "§cInvalid number: {input}"
+  config-reloaded: "§aPlugin configuration reloaded!"
+  
+  # Set command messages
+  set-usage: "§cUsage: /soulpoints set <player> <amount>"
+  set-amount-range: "§cAmount must be between 0 and {max_points}"
+  set-success-sender: "§aSet {player}'s soul points to {amount}/{max_points}"
+  set-success-target: "§a✦ Your soul points have been set to {amount}/{max_points}"
+  
+  # Give command messages
+  give-usage: "§cUsage: /soulpoints give <player> <amount>"
+  give-amount-positive: "§cAmount must be positive."
+  give-success-sender: "§aGave {given} soul points to {player} (now {new_points}/{max_points})"
+  give-success-target: "§a✦ You received {given} soul point{plural}! Current: {new_points}/{max_points}"
+  
+  # Take command messages
+  take-usage: "§cUsage: /soulpoints take <player> <amount>"
+  take-amount-positive: "§cAmount must be positive."
+  take-success-sender: "§cTook {taken} soul points from {player} (now {new_points}/{max_points})"
+  take-success-target: "§c✦ You lost {taken} soul point{plural}! Current: {new_points}/{max_points}"
+  
+  # Check command messages
+  check-usage: "§cUsage: /soulpoints check <player>"
+  
+  # Display values
+  yes: "Yes"
+  no: "No"
+  progress-bar-filled: "§a█"
+  progress-bar-empty: "§7█"

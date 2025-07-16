@@ -15,11 +15,13 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
     private final LamDeathPenalties plugin;
     private final SoulPointsManager soulPointsManager;
     private final RecoveryScheduler recoveryScheduler;
+    private final MessageManager messageManager;
     
     public SoulPointsCommand(LamDeathPenalties plugin, SoulPointsManager soulPointsManager, RecoveryScheduler recoveryScheduler) {
         this.plugin = plugin;
         this.soulPointsManager = soulPointsManager;
         this.recoveryScheduler = recoveryScheduler;
+        this.messageManager = plugin.getMessageManager();
     }
     
     @Override
@@ -27,7 +29,7 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
         if (args.length == 0) {
             // Show current soul points
             if (!(sender instanceof Player)) {
-                sender.sendMessage("§cThis command can only be used by players.");
+                messageManager.sendMessage(sender, "player-only");
                 return true;
             }
             
@@ -60,18 +62,18 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
     
     private boolean handleSetCommand(CommandSender sender, String[] args) {
         if (!sender.hasPermission("soulpoints.admin")) {
-            sender.sendMessage("§cYou don't have permission to use this command.");
+            messageManager.sendMessage(sender, "no-permission");
             return true;
         }
         
         if (args.length < 3) {
-            sender.sendMessage("§cUsage: /soulpoints set <player> <amount>");
+            messageManager.sendMessage(sender, "set-usage");
             return true;
         }
         
         Player target = Bukkit.getPlayer(args[1]);
         if (target == null) {
-            sender.sendMessage("§cPlayer not found: " + args[1]);
+            messageManager.sendMessage(sender, "player-not-found", MessageManager.placeholders("player", args[1]));
             return true;
         }
         
@@ -80,16 +82,23 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
             int maxPoints = plugin.getConfig().getInt("soul-points.max", 10);
             
             if (amount < 0 || amount > maxPoints) {
-                sender.sendMessage("§cAmount must be between 0 and " + maxPoints);
+                messageManager.sendMessage(sender, "set-amount-range", MessageManager.placeholders("max_points", String.valueOf(maxPoints)));
                 return true;
             }
             
             soulPointsManager.setSoulPoints(target.getUniqueId(), amount);
-            sender.sendMessage("§aSet " + target.getName() + "'s soul points to " + amount + "/" + maxPoints);
-            target.sendMessage("§a✦ Your soul points have been set to " + amount + "/" + maxPoints);
+            messageManager.sendMessage(sender, "set-success-sender", MessageManager.placeholders(
+                "player", target.getName(),
+                "amount", String.valueOf(amount),
+                "max_points", String.valueOf(maxPoints)
+            ));
+            messageManager.sendMessage(target, "set-success-target", MessageManager.placeholders(
+                "amount", String.valueOf(amount),
+                "max_points", String.valueOf(maxPoints)
+            ));
             
         } catch (NumberFormatException e) {
-            sender.sendMessage("§cInvalid number: " + args[2]);
+            messageManager.sendMessage(sender, "invalid-number", MessageManager.placeholders("input", args[2]));
         }
         
         return true;
@@ -97,18 +106,18 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
     
     private boolean handleGiveCommand(CommandSender sender, String[] args) {
         if (!sender.hasPermission("soulpoints.admin")) {
-            sender.sendMessage("§cYou don't have permission to use this command.");
+            messageManager.sendMessage(sender, "no-permission");
             return true;
         }
         
         if (args.length < 3) {
-            sender.sendMessage("§cUsage: /soulpoints give <player> <amount>");
+            messageManager.sendMessage(sender, "give-usage");
             return true;
         }
         
         Player target = Bukkit.getPlayer(args[1]);
         if (target == null) {
-            sender.sendMessage("§cPlayer not found: " + args[1]);
+            messageManager.sendMessage(sender, "player-not-found", MessageManager.placeholders("player", args[1]));
             return true;
         }
         
@@ -118,7 +127,7 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
             int maxPoints = plugin.getConfig().getInt("soul-points.max", 10);
             
             if (amount <= 0) {
-                sender.sendMessage("§cAmount must be positive.");
+                messageManager.sendMessage(sender, "give-amount-positive");
                 return true;
             }
             
@@ -126,11 +135,21 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
             int newPoints = soulPointsManager.getSoulPoints(target.getUniqueId());
             int actualGiven = newPoints - currentPoints;
             
-            sender.sendMessage("§aGave " + actualGiven + " soul points to " + target.getName() + " (now " + newPoints + "/" + maxPoints + ")");
-            target.sendMessage("§a✦ You received " + actualGiven + " soul point" + (actualGiven != 1 ? "s" : "") + "! Current: " + newPoints + "/" + maxPoints);
+            messageManager.sendMessage(sender, "give-success-sender", MessageManager.placeholders(
+                "given", String.valueOf(actualGiven),
+                "player", target.getName(),
+                "new_points", String.valueOf(newPoints),
+                "max_points", String.valueOf(maxPoints)
+            ));
+            messageManager.sendMessage(target, "give-success-target", MessageManager.placeholders(
+                "given", String.valueOf(actualGiven),
+                "plural", actualGiven != 1 ? "s" : "",
+                "new_points", String.valueOf(newPoints),
+                "max_points", String.valueOf(maxPoints)
+            ));
             
         } catch (NumberFormatException e) {
-            sender.sendMessage("§cInvalid number: " + args[2]);
+            messageManager.sendMessage(sender, "invalid-number", MessageManager.placeholders("input", args[2]));
         }
         
         return true;
@@ -138,18 +157,18 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
     
     private boolean handleTakeCommand(CommandSender sender, String[] args) {
         if (!sender.hasPermission("soulpoints.admin")) {
-            sender.sendMessage("§cYou don't have permission to use this command.");
+            messageManager.sendMessage(sender, "no-permission");
             return true;
         }
         
         if (args.length < 3) {
-            sender.sendMessage("§cUsage: /soulpoints take <player> <amount>");
+            messageManager.sendMessage(sender, "take-usage");
             return true;
         }
         
         Player target = Bukkit.getPlayer(args[1]);
         if (target == null) {
-            sender.sendMessage("§cPlayer not found: " + args[1]);
+            messageManager.sendMessage(sender, "player-not-found", MessageManager.placeholders("player", args[1]));
             return true;
         }
         
@@ -159,7 +178,7 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
             int maxPoints = plugin.getConfig().getInt("soul-points.max", 10);
             
             if (amount <= 0) {
-                sender.sendMessage("§cAmount must be positive.");
+                messageManager.sendMessage(sender, "take-amount-positive");
                 return true;
             }
             
@@ -167,11 +186,21 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
             int newPoints = soulPointsManager.getSoulPoints(target.getUniqueId());
             int actualTaken = currentPoints - newPoints;
             
-            sender.sendMessage("§cTook " + actualTaken + " soul points from " + target.getName() + " (now " + newPoints + "/" + maxPoints + ")");
-            target.sendMessage("§c✦ You lost " + actualTaken + " soul point" + (actualTaken != 1 ? "s" : "") + "! Current: " + newPoints + "/" + maxPoints);
+            messageManager.sendMessage(sender, "take-success-sender", MessageManager.placeholders(
+                "taken", String.valueOf(actualTaken),
+                "player", target.getName(),
+                "new_points", String.valueOf(newPoints),
+                "max_points", String.valueOf(maxPoints)
+            ));
+            messageManager.sendMessage(target, "take-success-target", MessageManager.placeholders(
+                "taken", String.valueOf(actualTaken),
+                "plural", actualTaken != 1 ? "s" : "",
+                "new_points", String.valueOf(newPoints),
+                "max_points", String.valueOf(maxPoints)
+            ));
             
         } catch (NumberFormatException e) {
-            sender.sendMessage("§cInvalid number: " + args[2]);
+            messageManager.sendMessage(sender, "invalid-number", MessageManager.placeholders("input", args[2]));
         }
         
         return true;
@@ -180,7 +209,7 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
     private boolean handleCheckCommand(CommandSender sender, String[] args) {
         if (args.length < 2) {
             if (!(sender instanceof Player)) {
-                sender.sendMessage("§cUsage: /soulpoints check <player>");
+                messageManager.sendMessage(sender, "check-usage");
                 return true;
             }
             Player player = (Player) sender;
@@ -189,13 +218,13 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
         }
         
         if (!sender.hasPermission("soulpoints.check.others")) {
-            sender.sendMessage("§cYou don't have permission to check other players' soul points.");
+            messageManager.sendMessage(sender, "no-permission-check-others");
             return true;
         }
         
         Player target = Bukkit.getPlayer(args[1]);
         if (target == null) {
-            sender.sendMessage("§cPlayer not found: " + args[1]);
+            messageManager.sendMessage(sender, "player-not-found", MessageManager.placeholders("player", args[1]));
             return true;
         }
         
@@ -205,12 +234,12 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
     
     private boolean handleReloadCommand(CommandSender sender) {
         if (!sender.hasPermission("soulpoints.admin")) {
-            sender.sendMessage("§cYou don't have permission to use this command.");
+            messageManager.sendMessage(sender, "no-permission");
             return true;
         }
         
         plugin.reloadPlugin();
-        sender.sendMessage("§aPlugin configuration reloaded!");
+        messageManager.sendMessage(sender, "config-reloaded");
         return true;
     }
     
@@ -228,22 +257,16 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
         // Create progress bar
         String progressBar = createProgressBar(currentPoints, maxPoints);
         
-        sender.sendMessage("§8§m                                                ");
-        sender.sendMessage("§6✦ Soul Points - " + target.getName());
-        sender.sendMessage("");
-        sender.sendMessage("§f" + progressBar + " §7(" + currentPoints + "/" + maxPoints + ")");
-        sender.sendMessage("");
-        sender.sendMessage("§7Current Penalties:");
-        sender.sendMessage("  §cItem Drop: §f" + dropRates.itemDrop + "%");
-        sender.sendMessage("  §cHotbar Drop: §f" + (dropRates.hotbarDrop ? "Yes" : "No"));
-        sender.sendMessage("  §cArmor Drop: §f" + (dropRates.armorDrop ? "Yes" : "No"));
-        
-        if (currentPoints < maxPoints) {
-            sender.sendMessage("");
-            sender.sendMessage("§7Next Recovery: §f" + recoveryTime);
-        }
-        
-        sender.sendMessage("§8§m                                                ");
+        messageManager.sendMessageList(sender, "soul-points-display", MessageManager.placeholders(
+            "player", target.getName(),
+            "progress_bar", progressBar,
+            "current_points", String.valueOf(currentPoints),
+            "max_points", String.valueOf(maxPoints),
+            "item_drop", String.valueOf(dropRates.itemDrop),
+            "hotbar_drop", dropRates.hotbarDrop ? messageManager.getMessage("yes") : messageManager.getMessage("no"),
+            "armor_drop", dropRates.armorDrop ? messageManager.getMessage("yes") : messageManager.getMessage("no"),
+            "recovery_time", recoveryTime
+        ));
     }
     
     private String createProgressBar(int current, int max) {
@@ -253,9 +276,9 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
         StringBuilder bar = new StringBuilder();
         for (int i = 0; i < barLength; i++) {
             if (i < filledBars) {
-                bar.append("§a█");
+                bar.append(messageManager.getMessage("progress-bar-filled"));
             } else {
-                bar.append("§7█");
+                bar.append(messageManager.getMessage("progress-bar-empty"));
             }
         }
         return bar.toString();
@@ -283,20 +306,19 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
     }
     
     private void sendHelpMessage(CommandSender sender) {
-        sender.sendMessage("§8§m                                                ");
-        sender.sendMessage("§6✦ Soul Points Commands");
-        sender.sendMessage("");
-        sender.sendMessage("§f/soulpoints §7- Check your soul points");
-        sender.sendMessage("§f/soulpoints check <player> §7- Check someone's soul points");
-        
         if (sender.hasPermission("soulpoints.admin")) {
-            sender.sendMessage("§f/soulpoints set <player> <amount> §7- Set soul points");
-            sender.sendMessage("§f/soulpoints give <player> <amount> §7- Give soul points");
-            sender.sendMessage("§f/soulpoints take <player> <amount> §7- Take soul points");
-            sender.sendMessage("§f/soulpoints reload §7- Reload config");
+            messageManager.sendMessageList(sender, "help-menu");
+        } else {
+            // Show basic help without admin commands
+            List<String> helpLines = messageManager.getMessageList("help-menu");
+            for (String line : helpLines) {
+                // Skip admin-only lines
+                if (line.contains("set") || line.contains("give") || line.contains("take") || line.contains("reload")) {
+                    continue;
+                }
+                sender.sendMessage(line);
+            }
         }
-        
-        sender.sendMessage("§8§m                                                ");
     }
     
     @Override

@@ -10,6 +10,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 public final class LamDeathPenalties extends JavaPlugin implements Listener {
     
     private FoliaLib foliaLib;
+    private MessageManager messageManager;
     private SoulPointsManager soulPointsManager;
     private RecoveryScheduler recoveryScheduler;
     private DeathListener deathListener;
@@ -24,6 +25,7 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
         saveDefaultConfig();
         
         // Initialize managers
+        messageManager = new MessageManager(this);
         soulPointsManager = new SoulPointsManager(this);
         recoveryScheduler = new RecoveryScheduler(this, soulPointsManager, foliaLib);
         deathListener = new DeathListener(this, soulPointsManager, foliaLib);
@@ -83,6 +85,10 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
         return recoveryScheduler;
     }
     
+    public MessageManager getMessageManager() {
+        return messageManager;
+    }
+    
     public void reloadPlugin() {
         // Reload configuration
         reloadConfig();
@@ -92,7 +98,11 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
             soulPointsManager.savePlayerData();
         }
         
-        // No need to recreate managers as they read config dynamically
+        // Reload messages
+        if (messageManager != null) {
+            messageManager.loadMessages();
+        }
+        
         getLogger().info("Plugin configuration reloaded!");
     }
 }
