@@ -10,6 +10,14 @@ soul-points:
   max: 10
   starting: 10
 
+# Lands integration settings
+lands-integration:
+  enabled: true           # Enable/disable Lands plugin integration
+  spawn-cost: 1            # Soul points cost to teleport to land spawns
+  only-other-lands: false   # Only charge for teleporting to other players' lands (not your own)
+  exempt-trusted: false     # Exempt trusted players from costs
+
+
 # Drop rates per soul point level (0-10)
 drop-rates:
   10:
@@ -108,12 +116,12 @@ messages:
     - "§8§m                                                "
     - "§6✦ Soul Points Commands"
     - ""
-    - "§f/soulpoints §7- Check your soul points"
-    - "§f/soulpoints check <player> §7- Check someone's soul points"
-    - "§f/soulpoints set <player> <amount> §7- Set soul points"
-    - "§f/soulpoints give <player> <amount> §7- Give soul points"
-    - "§f/soulpoints take <player> <amount> §7- Take soul points"
-    - "§f/soulpoints reload §7- Reload config"
+    - "§f/lmdp §7- Check your soul points"
+    - "§f/lmdp check <player> §7- Check someone's soul points"
+    - "§f/lmdp set <player> <amount> §7- Set soul points"
+    - "§f/lmdp give <player> <amount> §7- Give soul points"
+    - "§f/lmdp take <player> <amount> §7- Take soul points"
+    - "§f/lmdp reload §7- Reload config"
     - "§8§m                                                "
   
   # Single line messages
@@ -125,25 +133,30 @@ messages:
   config-reloaded: "§aPlugin configuration reloaded!"
   
   # Set command messages
-  set-usage: "§cUsage: /soulpoints set <player> <amount>"
+  set-usage: "§cUsage: /lmdp set <player> <amount>"
   set-amount-range: "§cAmount must be between 0 and {max_points}"
   set-success-sender: "§aSet {player}'s soul points to {amount}/{max_points}"
   set-success-target: "§a✦ Your soul points have been set to {amount}/{max_points}"
   
   # Give command messages
-  give-usage: "§cUsage: /soulpoints give <player> <amount>"
+  give-usage: "§cUsage: /lmdp give <player> <amount>"
   give-amount-positive: "§cAmount must be positive."
   give-success-sender: "§aGave {given} soul points to {player} (now {new_points}/{max_points})"
   give-success-target: "§a✦ You received {given} soul point{plural}! Current: {new_points}/{max_points}"
   
   # Take command messages
-  take-usage: "§cUsage: /soulpoints take <player> <amount>"
+  take-usage: "§cUsage: /lmdp take <player> <amount>"
   take-amount-positive: "§cAmount must be positive."
   take-success-sender: "§cTook {taken} soul points from {player} (now {new_points}/{max_points})"
   take-success-target: "§c✦ You lost {taken} soul point{plural}! Current: {new_points}/{max_points}"
   
   # Check command messages
-  check-usage: "§cUsage: /soulpoints check <player>"
+  check-usage: "§cUsage: /lmdp check <player>"
+  
+  # Lands integration messages
+  lands-insufficient-soul-points: "§c✦ Not enough soul points to teleport to {land_name}! Need {cost}, have {current}."
+  lands-teleport-cost: "§e✦ Teleported to {land_name} for {cost} soul point(s). Remaining: {remaining}"
+  
   
   # Display values
   yes: "Yes"

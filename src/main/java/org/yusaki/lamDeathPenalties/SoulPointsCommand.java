@@ -62,7 +62,7 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
     }
     
     private boolean handleSetCommand(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("soulpoints.admin")) {
+        if (!sender.hasPermission("lmdp.admin")) {
             messageManager.sendMessage(sender, "no-permission");
             return true;
         }
@@ -106,7 +106,7 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
     }
     
     private boolean handleGiveCommand(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("soulpoints.admin")) {
+        if (!sender.hasPermission("lmdp.admin")) {
             messageManager.sendMessage(sender, "no-permission");
             return true;
         }
@@ -157,7 +157,7 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
     }
     
     private boolean handleTakeCommand(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("soulpoints.admin")) {
+        if (!sender.hasPermission("lmdp.admin")) {
             messageManager.sendMessage(sender, "no-permission");
             return true;
         }
@@ -218,7 +218,7 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
             return true;
         }
         
-        if (!sender.hasPermission("soulpoints.check.others")) {
+        if (!sender.hasPermission("lmdp.check.others")) {
             messageManager.sendMessage(sender, "no-permission-check-others");
             return true;
         }
@@ -234,7 +234,7 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
     }
     
     private boolean handleReloadCommand(CommandSender sender) {
-        if (!sender.hasPermission("soulpoints.admin")) {
+        if (!sender.hasPermission("lmdp.admin")) {
             messageManager.sendMessage(sender, "no-permission");
             return true;
         }
@@ -307,7 +307,7 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
     }
     
     private void sendHelpMessage(CommandSender sender) {
-        if (sender.hasPermission("soulpoints.admin")) {
+        if (sender.hasPermission("lmdp.admin")) {
             messageManager.sendMessageList(sender, "help-menu");
         } else {
             // Show basic help without admin commands
@@ -328,7 +328,7 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
         
         if (args.length == 1) {
             List<String> subCommands = Arrays.asList("check");
-            if (sender.hasPermission("soulpoints.admin")) {
+            if (sender.hasPermission("lmdp.admin")) {
                 subCommands = Arrays.asList("set", "give", "take", "check", "reload");
             }
             

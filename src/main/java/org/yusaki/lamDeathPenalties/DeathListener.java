@@ -29,7 +29,7 @@ public class DeathListener implements Listener {
         Player player = event.getEntity();
         
         // Check if player has bypass permission - if so, behave like keepInventory
-        if (player.hasPermission("soulpoints.bypass")) {
+        if (player.hasPermission("lmdp.bypass")) {
             event.setKeepInventory(true);
             event.setKeepLevel(true);
             event.getDrops().clear();

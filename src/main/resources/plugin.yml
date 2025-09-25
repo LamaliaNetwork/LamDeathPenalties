@@ -1,23 +1,23 @@
 name: LamDeathPenalties
-version: '0.1'
+version: '${project.version}'
 main: org.yusaki.lamDeathPenalties.LamDeathPenalties
 api-version: '1.21'
 folia-supported: true
-softdepend: [PlaceholderAPI]
+softdepend: [PlaceholderAPI, Lands]
 
 commands:
-  soulpoints:
+  lmdp:
     description: Manage soul points
-    usage: /soulpoints [set|give|check] [player] [amount]
-    aliases: [sp, souls]
+    usage: /lmdp [set|give|check] [player] [amount]
+    aliases: [dp, deathpenalties, soulpoints]
 
 permissions:
-  soulpoints.check.others:
+  lmdp.check.others:
     description: Check other players' soul points
     default: op
-  soulpoints.admin:
+  lmdp.admin:
     description: Admin commands for soul points
     default: op
-  soulpoints.bypass:
+  lmdp.bypass:
     description: Bypass all death penalties
     default: op

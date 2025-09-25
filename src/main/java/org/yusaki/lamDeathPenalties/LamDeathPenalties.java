@@ -18,6 +18,7 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
     private RecoveryScheduler recoveryScheduler;
     private DeathListener deathListener;
     private SoulPointsCommand soulPointsCommand;
+    private LandsIntegration landsIntegration;
 
     @Override
     public void onEnable() {
@@ -39,14 +40,22 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
         getServer().getPluginManager().registerEvents(this, this);
         
         // Register commands
-        getCommand("soulpoints").setExecutor(soulPointsCommand);
-        getCommand("soulpoints").setTabCompleter(soulPointsCommand);
+        getCommand("lmdp").setExecutor(soulPointsCommand);
+        getCommand("lmdp").setTabCompleter(soulPointsCommand);
         
         // Register PlaceholderAPI expansion if available
         if (getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
             new SoulPointsPlaceholder(this, soulPointsManager, recoveryScheduler).register();
             getLogger().info("PlaceholderAPI integration enabled!");
         }
+        
+        // Register Lands integration if available
+        if (getServer().getPluginManager().getPlugin("Lands") != null) {
+            landsIntegration = new LandsIntegration(this);
+            getServer().getPluginManager().registerEvents(landsIntegration, this);
+            getLogger().info("Lands integration enabled!");
+        }
+        
         
         // Register public API
         LamDeathPenaltiesAPIImpl api = new LamDeathPenaltiesAPIImpl(this);
@@ -96,6 +105,7 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
     public MessageManager getMessageManager() {
         return messageManager;
     }
+    
     
     public void reloadPlugin() {
         // Reload configuration
