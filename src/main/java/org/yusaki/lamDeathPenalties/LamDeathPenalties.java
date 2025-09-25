@@ -18,8 +18,6 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
     private RecoveryScheduler recoveryScheduler;
     private DeathListener deathListener;
     private SoulPointsCommand soulPointsCommand;
-    private LandsIntegration landsIntegration;
-
     @Override
     public void onEnable() {
         // Initialize FoliaLib
@@ -49,12 +47,6 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
             getLogger().info("PlaceholderAPI integration enabled!");
         }
         
-        // Register Lands integration if available
-        if (getServer().getPluginManager().getPlugin("Lands") != null) {
-            landsIntegration = new LandsIntegration(this);
-            getServer().getPluginManager().registerEvents(landsIntegration, this);
-            getLogger().info("Lands integration enabled!");
-        }
         
         
         // Register public API

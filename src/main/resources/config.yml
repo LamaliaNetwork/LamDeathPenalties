@@ -10,14 +10,6 @@ soul-points:
   max: 10
   starting: 10
 
-# Lands integration settings
-lands-integration:
-  enabled: true           # Enable/disable Lands plugin integration
-  spawn-cost: 1            # Soul points cost to teleport to land spawns
-  only-other-lands: false   # Only charge for teleporting to other players' lands (not your own)
-  exempt-trusted: false     # Exempt trusted players from costs
-
-
 # Drop rates per soul point level (0-10)
 drop-rates:
   10:
@@ -153,9 +145,6 @@ messages:
   # Check command messages
   check-usage: "§cUsage: /lmdp check <player>"
   
-  # Lands integration messages
-  lands-insufficient-soul-points: "§c✦ Not enough soul points to teleport to {land_name}! Need {cost}, have {current}."
-  lands-teleport-cost: "§e✦ Teleported to {land_name} for {cost} soul point(s). Remaining: {remaining}"
   
   
   # Display values
