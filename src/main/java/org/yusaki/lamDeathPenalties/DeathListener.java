@@ -29,35 +29,45 @@ public class DeathListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH)
     public void onPlayerDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
-        
+
+        plugin.getYskLib().logDebug(plugin, "Processing death event for player: " + player.getName());
+
         // Check if player has bypass permission - if so, behave like keepInventory
         if (player.hasPermission("lmdp.bypass")) {
             event.setKeepInventory(true);
             event.setKeepLevel(true);
             event.getDrops().clear();
             event.setDroppedExp(0);
+            plugin.getYskLib().logDebug(plugin, "Player " + player.getName() + " has bypass permission - keeping inventory");
             return;
         }
-        
+
         // Check if keepInventory is enabled - if so, skip all plugin logic
         if (Boolean.parseBoolean(player.getWorld().getGameRuleValue("keepInventory"))) {
+            plugin.getYskLib().logDebug(plugin, "keepInventory is enabled in world " + player.getWorld().getName() + " - skipping");
             return;
         }
-        
+
         // Get soul points before reduction
         int oldSoulPoints = soulPointsManager.getSoulPoints(player.getUniqueId());
-        
+
         // Reduce soul points by 1
         soulPointsManager.removeSoulPoint(player.getUniqueId());
-        
+
         // Get current soul points after reduction
         int currentSoulPoints = soulPointsManager.getSoulPoints(player.getUniqueId());
-        
+
+        plugin.getYskLib().logDebug(plugin, "Soul points for " + player.getName() + ": " + oldSoulPoints + " -> " + currentSoulPoints);
+
         // Get drop rates for current soul points
         SoulPointsManager.DropRates dropRates = soulPointsManager.getDropRates(currentSoulPoints);
-        
+
+        plugin.getYskLib().logDebug(plugin, "Drop rates - Items: " + dropRates.itemDrop + "%, Hotbar: " + dropRates.hotbarDrop + ", Armor: " + dropRates.armorDrop);
+
         // Handle item drops and get info about what dropped
         ItemDropResult dropResult = handleItemDrops(event, dropRates);
+
+        plugin.getYskLib().logDebug(plugin, "Dropped " + dropResult.itemsDropped + "/" + dropResult.totalItems + " items for " + player.getName());
         
         // Experience always drops (default Minecraft behavior)
         // Send death notification with delay using Folia-compatible scheduler

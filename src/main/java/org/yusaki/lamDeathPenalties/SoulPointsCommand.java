@@ -93,6 +93,9 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
             }
 
             soulPointsManager.setSoulPointsWithReason(target.getUniqueId(), amount, SoulPointsChangeEvent.ChangeReason.COMMAND);
+
+            plugin.getYskLib().logDebug(plugin, sender.getName() + " set soul points for " + target.getName() + " to " + amount);
+
             messageManager.sendMessage(plugin, sender, "set-success-sender", placeholders(
                 "player", target.getName(),
                 "amount", String.valueOf(amount),
@@ -142,7 +145,9 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
             soulPointsManager.addSoulPoints(target.getUniqueId(), amount);
             int newPoints = soulPointsManager.getSoulPoints(target.getUniqueId());
             int actualGiven = newPoints - currentPoints;
-            
+
+            plugin.getYskLib().logDebug(plugin, sender.getName() + " gave " + actualGiven + " soul points to " + target.getName());
+
             messageManager.sendMessage(plugin, sender, "give-success-sender", placeholders(
                 "given", String.valueOf(actualGiven),
                 "player", target.getName(),
@@ -195,7 +200,9 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
             soulPointsManager.removeSoulPoints(target.getUniqueId(), amount);
             int newPoints = soulPointsManager.getSoulPoints(target.getUniqueId());
             int actualTaken = currentPoints - newPoints;
-            
+
+            plugin.getYskLib().logDebug(plugin, sender.getName() + " took " + actualTaken + " soul points from " + target.getName());
+
             messageManager.sendMessage(plugin, sender, "take-success-sender", placeholders(
                 "taken", String.valueOf(actualTaken),
                 "player", target.getName(),

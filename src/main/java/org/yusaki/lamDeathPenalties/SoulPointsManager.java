@@ -27,6 +27,7 @@ public class SoulPointsManager {
         this.dataFile = new File(plugin.getDataFolder(), "playerdata.json");
         this.playerData = new HashMap<>();
         loadPlayerData();
+        plugin.getYskLib().logDebug(plugin, "SoulPointsManager initialized with " + playerData.size() + " players");
     }
     
     public int getSoulPoints(UUID playerId) {
@@ -37,14 +38,16 @@ public class SoulPointsManager {
             data = new PlayerSoulData(startingPoints, System.currentTimeMillis(), 0);
             playerData.put(playerId, data);
             savePlayerData();
+            plugin.getYskLib().logDebug(plugin, "Created new player data for " + playerId + " with " + startingPoints + " soul points");
         }
         return data.soulPoints;
     }
     
     public void setSoulPoints(UUID playerId, int points) {
         int maxPoints = plugin.getConfig().getInt("soul-points.max", 10);
+        int oldPoints = playerData.containsKey(playerId) ? playerData.get(playerId).soulPoints : 0;
         points = Math.max(0, Math.min(points, maxPoints));
-        
+
         PlayerSoulData data = playerData.get(playerId);
         if (data == null) {
             data = new PlayerSoulData(points, System.currentTimeMillis(), 0);
@@ -53,6 +56,10 @@ public class SoulPointsManager {
         }
         playerData.put(playerId, data);
         savePlayerData();
+
+        if (oldPoints != points) {
+            plugin.getYskLib().logDebug(plugin, "Soul points changed for " + playerId + ": " + oldPoints + " -> " + points);
+        }
     }
     
     public void addSoulPoints(UUID playerId, int points) {
@@ -184,8 +191,9 @@ public class SoulPointsManager {
                 playerData = loaded;
             }
         } catch (IOException e) {
-            plugin.getLogger().warning("Failed to load player data: " + e.getMessage());
+            plugin.getYskLib().logWarn(plugin, "Failed to load player data: " + e.getMessage());
         }
+        plugin.getYskLib().logDebug(plugin, "Loaded " + playerData.size() + " player records from " + dataFile.getName());
     }
     
     public void savePlayerData() {
@@ -193,12 +201,13 @@ public class SoulPointsManager {
             if (!plugin.getDataFolder().exists()) {
                 plugin.getDataFolder().mkdirs();
             }
-            
+
             try (FileWriter writer = new FileWriter(dataFile)) {
                 gson.toJson(playerData, writer);
             }
+            plugin.getYskLib().logDebug(plugin, "Saved " + playerData.size() + " player records to " + dataFile.getName());
         } catch (IOException e) {
-            plugin.getLogger().warning("Failed to save player data: " + e.getMessage());
+            plugin.getYskLib().logWarn(plugin, "Failed to save player data: " + e.getMessage());
         }
     }
     

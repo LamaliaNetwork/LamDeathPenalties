@@ -83,6 +83,7 @@ public class RecoveryScheduler {
                         
                         // Notify player if they gained soul points
                         if (recoveryCount > 0) {
+                            plugin.getYskLib().logDebug(plugin, "Player " + player.getName() + " recovered " + recoveryCount + " soul point(s) via active-time mode");
                             org.yusaki.lib.modules.MessageManager messageManager = plugin.getMessageManager();
                             messageManager.sendMessageList(plugin, player, "recovery-gained", placeholders(
                                 "count", String.valueOf(recoveryCount),
@@ -99,13 +100,18 @@ public class RecoveryScheduler {
     
     public void onPlayerJoin(UUID playerId) {
         String recoveryMode = plugin.getConfig().getString("recovery.mode", "real-time");
-        
+
+        Player player = Bukkit.getPlayer(playerId);
+        String playerName = player != null ? player.getName() : playerId.toString();
+
         if (recoveryMode.equals("real-time")) {
             // Process any recovery that should have happened while offline
+            plugin.getYskLib().logDebug(plugin, "Processing offline recovery for " + playerName);
             soulPointsManager.processRecovery(playerId);
         } else if (recoveryMode.equals("active-time")) {
             // Start tracking session time
             playerSessionStartTimes.put(playerId, System.currentTimeMillis());
+            plugin.getYskLib().logDebug(plugin, "Started active-time session tracking for " + playerName);
         }
     }
     

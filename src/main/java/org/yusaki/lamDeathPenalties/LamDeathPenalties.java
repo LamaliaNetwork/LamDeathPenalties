@@ -29,6 +29,8 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
             return;
         }
 
+        yskLib.logDebug(this, "YskLib instance obtained successfully");
+
         // Initialize FoliaLib
         foliaLib = new FoliaLib(this);
 
@@ -56,7 +58,7 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
         // Register PlaceholderAPI expansion if available
         if (getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
             new SoulPointsPlaceholder(this, soulPointsManager, recoveryScheduler).register();
-            getLogger().info("PlaceholderAPI integration enabled!");
+            yskLib.logInfo(this, "PlaceholderAPI integration enabled!");
         }
         
         
@@ -64,9 +66,10 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
         // Register public API
         LamDeathPenaltiesAPIImpl api = new LamDeathPenaltiesAPIImpl(this);
         getServer().getServicesManager().register(LamDeathPenaltiesAPI.class, api, this, ServicePriority.Normal);
-        getLogger().info("LamDeathPenalties API registered!");
-        
-        getLogger().info("LamDeathPenalties enabled with FoliaLib support!");
+        yskLib.logInfo(this, "LamDeathPenalties API registered!");
+        yskLib.logDebug(this, "API service priority: Normal");
+
+        yskLib.logInfo(this, "LamDeathPenalties enabled with FoliaLib support!");
     }
 
     @Override
@@ -75,8 +78,10 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
         if (soulPointsManager != null) {
             soulPointsManager.savePlayerData();
         }
-        
-        getLogger().info("LamDeathPenalties disabled!");
+
+        if (yskLib != null) {
+            yskLib.logInfo(this, "LamDeathPenalties disabled!");
+        }
     }
     
     @EventHandler
@@ -112,20 +117,24 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
     
 
     public void reloadPlugin() {
+        yskLib.logDebug(this, "Starting plugin reload...");
+
         // Save current data before reloading
         if (soulPointsManager != null) {
             soulPointsManager.savePlayerData();
+            yskLib.logDebug(this, "Player data saved before reload");
         }
 
         // Reload configuration using YskLib updater
         if (yskLib != null) {
             yskLib.updateConfig(this);
             yskLib.loadMessages(this);
+            yskLib.logDebug(this, "Config and messages reloaded");
         } else {
             reloadConfig();
         }
 
-        getLogger().info("Plugin configuration reloaded!");
+        yskLib.logInfo(this, "Plugin configuration reloaded!");
     }
 
     public YskLib getYskLib() {

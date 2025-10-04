@@ -3,6 +3,13 @@
 # Config version - DO NOT EDIT (used for automatic updates)
 version: 0.4
 
+# Debug level - Controls logging verbosity
+# 0 = Errors only (critical issues)
+# 1 = Warnings (potential problems)
+# 2 = Info (general operation) - RECOMMENDED
+# 3 = Debug (detailed troubleshooting)
+debug: 2
+
 # Recovery settings
 recovery:
   mode: "real-time"  # Options: "real-time" or "active-time"
