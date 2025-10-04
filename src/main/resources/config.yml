@@ -20,10 +20,12 @@ default-penalty:
     mode: "flat" # Options: "flat" or "percent"
     amount: 0.0
   max-health:
-    amount: 0.0
+    mode: "remove" # Options: "remove" to deduct hearts, "add" to grant bonus hearts
+    amount: 0.0   # Magnitude in hearts (not cumulative per death)
+                  # Only used when soul points are enabled and a tier fallback is needed
   commands:
     on-money-empty: []
-    on-max-health-empty: []
+    on-max-health-empty: [] # Commands run when max health hits threshold (0 or below)
 
 soul-points:
   enabled: true # Toggle to disable the soul points system entirely
@@ -47,12 +49,13 @@ soul-points:
         mode: "percent"
         amount: 5.0
       max-health:
+        mode: "remove"
         amount: 5.0
       commands:
         on-money-empty:
-          - "ban %player% Ran out of funds!"
+          - "say %player% Ran out of funds!"
         on-max-health-empty:
-          - "kick %player% You have no heart left!"
+          - "say %player% You have no heart left!"
     8:
       items:
         drop-percent: 20
@@ -77,6 +80,7 @@ soul-points:
         mode: "flat"
         amount: 150.0
       max-health:
+        mode: "remove"
         amount: 2.0
       commands:
         on-money-empty: []
