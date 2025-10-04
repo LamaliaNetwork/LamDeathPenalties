@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -155,7 +156,7 @@ public class SoulPointsManager {
         ConfigurationSection dropRatesRoot = plugin.getConfig().getConfigurationSection("soul-points.drop-rates");
         ItemPenaltyConfig defaultItems = getDefaultItemPenalty();
         MoneyPenaltyConfig defaultMoney = getDefaultMoneyPenalty();
-        double defaultMaxHealth = getDefaultMaxHealthPenalty();
+        MaxHealthPenaltyConfig defaultMaxHealth = getDefaultMaxHealthPenalty();
         CommandPenaltyConfig defaultCommands = getDefaultCommandPenalty();
         ConfigurationSection dropConfig = findDropConfig(dropRatesRoot, soulPoints);
 
@@ -190,10 +191,10 @@ public class SoulPointsManager {
         return null;
     }
 
-    private DropRates buildDropRates(ConfigurationSection section, ItemPenaltyConfig defaultItems, MoneyPenaltyConfig defaultMoney, double defaultMaxHealth, CommandPenaltyConfig defaultCommands) {
+    private DropRates buildDropRates(ConfigurationSection section, ItemPenaltyConfig defaultItems, MoneyPenaltyConfig defaultMoney, MaxHealthPenaltyConfig defaultMaxHealth, CommandPenaltyConfig defaultCommands) {
         ItemPenaltyConfig itemPenalty = resolveItemPenalty(section, defaultItems);
         MoneyPenaltyConfig moneyPenalty = resolveMoneyPenalty(section, defaultMoney);
-        double maxHealthPenalty = resolveMaxHealthPenalty(section, defaultMaxHealth);
+        MaxHealthPenaltyConfig maxHealthPenalty = resolveMaxHealthPenalty(section, defaultMaxHealth);
         CommandPenaltyConfig commandPenaltyConfig = resolveCommandPenalty(section, defaultCommands);
 
         return new DropRates(
@@ -202,7 +203,8 @@ public class SoulPointsManager {
             itemPenalty.armorDrop,
             moneyPenalty.amount,
             moneyPenalty.mode,
-            maxHealthPenalty,
+            maxHealthPenalty.amount,
+            maxHealthPenalty.mode,
             commandPenaltyConfig.moneyEmptyCommands,
             commandPenaltyConfig.maxHealthEmptyCommands
         );
@@ -211,7 +213,7 @@ public class SoulPointsManager {
     private DropRates getDefaultDropRates() {
         ItemPenaltyConfig itemPenalty = getDefaultItemPenalty();
         MoneyPenaltyConfig moneyPenalty = getDefaultMoneyPenalty();
-        double maxHealthPenalty = getDefaultMaxHealthPenalty();
+        MaxHealthPenaltyConfig maxHealthPenalty = getDefaultMaxHealthPenalty();
         CommandPenaltyConfig commandPenaltyConfig = getDefaultCommandPenalty();
 
         return new DropRates(
@@ -220,7 +222,8 @@ public class SoulPointsManager {
             itemPenalty.armorDrop,
             moneyPenalty.amount,
             moneyPenalty.mode,
-            maxHealthPenalty,
+            maxHealthPenalty.amount,
+            maxHealthPenalty.mode,
             commandPenaltyConfig.moneyEmptyCommands,
             commandPenaltyConfig.maxHealthEmptyCommands
         );
@@ -271,20 +274,24 @@ public class SoulPointsManager {
         return safeFallback;
     }
 
-    private double getDefaultMaxHealthPenalty() {
+    private MaxHealthPenaltyConfig getDefaultMaxHealthPenalty() {
         ConfigurationSection maxSection = plugin.getConfig().getConfigurationSection("default-penalty.max-health");
         if (maxSection != null) {
-            return maxSection.getDouble("amount", 0.0D);
+            String modeValue = maxSection.getString("mode", "remove");
+            double amount = maxSection.getDouble("amount", 0.0D);
+            DropRates.MaxHealthPenaltyMode mode = DropRates.MaxHealthPenaltyMode.fromString(modeValue, DropRates.MaxHealthPenaltyMode.REMOVE);
+            return new MaxHealthPenaltyConfig(amount, mode);
         }
 
         if (plugin.getConfig().isSet("default-penalty.max-health")) {
-            return plugin.getConfig().getDouble("default-penalty.max-health", 0.0D);
+            double amount = plugin.getConfig().getDouble("default-penalty.max-health", 0.0D);
+            return new MaxHealthPenaltyConfig(amount, DropRates.MaxHealthPenaltyMode.REMOVE);
         }
 
-        return 0.0D;
+        return new MaxHealthPenaltyConfig(0.0D, DropRates.MaxHealthPenaltyMode.REMOVE);
     }
 
-    private double resolveMaxHealthPenalty(ConfigurationSection section, double fallback) {
+    private MaxHealthPenaltyConfig resolveMaxHealthPenalty(ConfigurationSection section, MaxHealthPenaltyConfig fallback) {
         if (section == null) {
             return fallback;
         }
@@ -292,10 +299,15 @@ public class SoulPointsManager {
         if (section.isConfigurationSection("max-health")) {
             ConfigurationSection maxSection = section.getConfigurationSection("max-health");
             if (maxSection != null) {
-                return maxSection.getDouble("amount", fallback);
+                double amount = maxSection.getDouble("amount", fallback != null ? fallback.amount : 0.0D);
+                String modeValue = maxSection.getString("mode", fallback != null ? fallback.mode.name().toLowerCase(Locale.ROOT) : "remove");
+                DropRates.MaxHealthPenaltyMode mode = DropRates.MaxHealthPenaltyMode.fromString(modeValue, fallback != null ? fallback.mode : DropRates.MaxHealthPenaltyMode.REMOVE);
+                return new MaxHealthPenaltyConfig(amount, mode);
             }
         } else if (section.isSet("max-health")) {
-            return section.getDouble("max-health", fallback);
+            double amount = section.getDouble("max-health", fallback != null ? fallback.amount : 0.0D);
+            DropRates.MaxHealthPenaltyMode mode = fallback != null ? fallback.mode : DropRates.MaxHealthPenaltyMode.REMOVE;
+            return new MaxHealthPenaltyConfig(amount, mode);
         }
 
         return fallback;
@@ -519,33 +531,51 @@ public class SoulPointsManager {
         AttributeModifier existing = getMaxHealthModifier(attribute);
         if (existing != null) {
             if (existing.getOperation() == AttributeModifier.Operation.ADD_NUMBER) {
-                previousHearts = Math.max(0.0D, -existing.getAmount()) / 2.0D;
+                previousHearts = -existing.getAmount() / 2.0D;
             }
             attribute.removeModifier(existing);
         }
 
         if (plugin.isSoulPointsEnabled() && dropRates != null) {
-            double baseValue = attribute.getBaseValue();
-            double minAllowed = Math.max(1.0D, MIN_MAX_HEALTH_POINTS);
-            double maxPoints = Math.max(0.0D, baseValue - minAllowed);
+            DropRates.MaxHealthPenaltyMode mode = dropRates.maxHealthMode != null
+                ? dropRates.maxHealthMode
+                : DropRates.MaxHealthPenaltyMode.REMOVE;
             double requestedHearts = Math.max(0.0D, dropRates.maxHealthPenalty);
-            double requestedPoints = requestedHearts * 2.0D;
-            double appliedPoints = Math.min(maxPoints, requestedPoints);
 
-            if (appliedPoints > 0.0D) {
-                AttributeModifier modifier = new AttributeModifier(
-                    MAX_HEALTH_MODIFIER_ID,
-                    MAX_HEALTH_MODIFIER_NAME,
-                    -appliedPoints,
-                    AttributeModifier.Operation.ADD_NUMBER
-                );
-                attribute.addModifier(modifier);
-                appliedHearts = appliedPoints / 2.0D;
-            }
+            if (requestedHearts > 0.0D) {
+                if (mode == DropRates.MaxHealthPenaltyMode.REMOVE) {
+                    double baseValue = attribute.getBaseValue();
+                    double minAllowed = Math.max(1.0D, MIN_MAX_HEALTH_POINTS);
+                    double maxPoints = Math.max(0.0D, baseValue - minAllowed);
+                    double requestedPoints = requestedHearts * 2.0D;
+                    double appliedPoints = Math.min(maxPoints, requestedPoints);
 
-            double currentMax = attribute.getValue();
-            if (player.getHealth() > currentMax) {
-                player.setHealth(currentMax);
+                    if (appliedPoints > 0.0D) {
+                        AttributeModifier modifier = new AttributeModifier(
+                            MAX_HEALTH_MODIFIER_ID,
+                            MAX_HEALTH_MODIFIER_NAME,
+                            -appliedPoints,
+                            AttributeModifier.Operation.ADD_NUMBER
+                        );
+                        attribute.addModifier(modifier);
+                        appliedHearts = appliedPoints / 2.0D;
+                    }
+
+                    double currentMax = attribute.getValue();
+                    if (player.getHealth() > currentMax) {
+                        player.setHealth(currentMax);
+                    }
+                } else {
+                    double addedPoints = requestedHearts * 2.0D;
+                    AttributeModifier modifier = new AttributeModifier(
+                        MAX_HEALTH_MODIFIER_ID,
+                        MAX_HEALTH_MODIFIER_NAME,
+                        addedPoints,
+                        AttributeModifier.Operation.ADD_NUMBER
+                    );
+                    attribute.addModifier(modifier);
+                    appliedHearts = -(addedPoints / 2.0D);
+                }
             }
         }
 
@@ -624,6 +654,16 @@ public class SoulPointsManager {
         }
     }
 
+    private static class MaxHealthPenaltyConfig {
+        final double amount;
+        final DropRates.MaxHealthPenaltyMode mode;
+
+        MaxHealthPenaltyConfig(double amount, DropRates.MaxHealthPenaltyMode mode) {
+            this.amount = Math.abs(amount);
+            this.mode = mode != null ? mode : DropRates.MaxHealthPenaltyMode.REMOVE;
+        }
+    }
+
     public static class DropRates {
         public final int itemDrop;
         public final boolean hotbarDrop;
@@ -631,17 +671,20 @@ public class SoulPointsManager {
         public final double moneyPenalty;
         public final MoneyPenaltyMode moneyMode;
         public final double maxHealthPenalty;
+        public final MaxHealthPenaltyMode maxHealthMode;
         public final List<String> moneyEmptyCommands;
         public final List<String> maxHealthEmptyCommands;
         
         public DropRates(int itemDrop, boolean hotbarDrop, boolean armorDrop, double moneyPenalty, MoneyPenaltyMode moneyMode,
-                         double maxHealthPenalty, List<String> moneyEmptyCommands, List<String> maxHealthEmptyCommands) {
+                         double maxHealthPenalty, MaxHealthPenaltyMode maxHealthMode,
+                         List<String> moneyEmptyCommands, List<String> maxHealthEmptyCommands) {
             this.itemDrop = itemDrop;
             this.hotbarDrop = hotbarDrop;
             this.armorDrop = armorDrop;
             this.moneyPenalty = moneyPenalty;
             this.moneyMode = moneyMode;
             this.maxHealthPenalty = maxHealthPenalty;
+            this.maxHealthMode = maxHealthMode != null ? maxHealthMode : MaxHealthPenaltyMode.REMOVE;
             this.moneyEmptyCommands = moneyEmptyCommands != null ? moneyEmptyCommands : Collections.emptyList();
             this.maxHealthEmptyCommands = maxHealthEmptyCommands != null ? maxHealthEmptyCommands : Collections.emptyList();
         }
@@ -662,6 +705,29 @@ public class SoulPointsManager {
                     case "percent":
                     case "percentage":
                         return PERCENT;
+                    default:
+                        return fallback;
+                }
+            }
+        }
+
+        public enum MaxHealthPenaltyMode {
+            REMOVE,
+            ADD;
+
+            public static MaxHealthPenaltyMode fromString(String value, MaxHealthPenaltyMode fallback) {
+                if (value == null) {
+                    return fallback;
+                }
+                switch (value.toLowerCase(Locale.ROOT)) {
+                    case "remove":
+                    case "loss":
+                    case "subtract":
+                        return REMOVE;
+                    case "add":
+                    case "bonus":
+                    case "increase":
+                        return ADD;
                     default:
                         return fallback;
                 }
