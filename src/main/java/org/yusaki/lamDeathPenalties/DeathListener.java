@@ -1,6 +1,11 @@
 package org.yusaki.lamDeathPenalties;
 
 import com.tcoded.folialib.FoliaLib;
+import net.milkbowl.vault.economy.Economy;
+import net.milkbowl.vault.economy.EconomyResponse;
+import org.bukkit.Bukkit;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -17,6 +22,7 @@ public class DeathListener implements Listener {
     private final SoulPointsManager soulPointsManager;
     private final FoliaLib foliaLib;
     private final Random random;
+    private static final double BALANCE_EPSILON = 0.0001D;
     
     
     public DeathListener(LamDeathPenalties plugin, SoulPointsManager soulPointsManager, FoliaLib foliaLib) {
@@ -73,11 +79,26 @@ public class DeathListener implements Listener {
         ItemDropResult dropResult = handleItemDrops(event, dropRates);
 
         plugin.getYskLib().logDebug(plugin, "Dropped " + dropResult.itemsDropped + "/" + dropResult.totalItems + " items for " + player.getName());
+
+        SoulPointsManager.MaxHealthPenaltyResult maxHealthResult = soulPointsManager.applyMaxHealthPenalty(player, dropRates);
+        MoneyPenaltyResult moneyResult = applyMoneyPenalty(player, dropRates);
+
+        if (moneyResult.depleted) {
+            triggerCommands(dropRates.moneyEmptyCommands, player);
+        }
+
+        if (maxHealthResult.deltaHearts > 0.0D && isMaxHealthCritical(player)) {
+            triggerCommands(dropRates.maxHealthEmptyCommands, player);
+        }
+        plugin.getYskLib().logDebug(plugin, "Max health penalty applied: " + maxHealthResult.deltaHearts + " hearts for " + player.getName());
+        if (moneyResult.amountLost > 0.0D) {
+            plugin.getYskLib().logDebug(plugin, "Money penalty applied: " + moneyResult.amountLost + " for " + player.getName());
+        }
         
         // Experience always drops (default Minecraft behavior)
         // Send death notification with delay using Folia-compatible scheduler
         foliaLib.getImpl().runAtEntityLater(player, task -> {
-            sendDeathNotification(player, oldSoulPoints, currentSoulPoints, dropResult);
+            sendDeathNotification(player, oldSoulPoints, currentSoulPoints, dropResult, moneyResult, maxHealthResult);
         }, 40L); // 2 second delay after death
     }
     
@@ -302,7 +323,8 @@ public class DeathListener implements Listener {
     }
     
     private void sendDeathNotification(Player player, int oldSoulPoints, int currentSoulPoints,
-                                      ItemDropResult dropResult) {
+                                      ItemDropResult dropResult, MoneyPenaltyResult moneyResult,
+                                      SoulPointsManager.MaxHealthPenaltyResult maxHealthResult) {
         int maxSoulPoints = plugin.getConfig().getInt("soul-points.max", 10);
         org.yusaki.lib.modules.MessageManager messageManager = plugin.getMessageManager();
 
@@ -314,12 +336,16 @@ public class DeathListener implements Listener {
             "items_dropped", String.valueOf(dropResult.itemsDropped),
             "total_items", String.valueOf(dropResult.totalItems)
         );
+
+        double moneyLost = moneyResult != null ? moneyResult.amountLost : 0.0D;
+        placeholdersMap.put("money_lost", formatCurrency(moneyLost));
+        placeholdersMap.put("drop_percentage", dropResult.totalItems > 0
+            ? String.format("%.1f", (double) dropResult.itemsDropped / dropResult.totalItems * 100)
+            : "0");
+        placeholdersMap.put("max_health_lost", formatHearts(maxHealthResult != null ? maxHealthResult.deltaHearts : 0.0D));
         
         // Show item loss summary
         if (dropResult.totalItems > 0) {
-            double dropPercentage = (double) dropResult.itemsDropped / dropResult.totalItems * 100;
-            placeholdersMap.put("drop_percentage", String.format("%.1f", dropPercentage));
-
             // Show specific items dropped (top 3 most common)
             if (!dropResult.droppedItems.isEmpty()) {
                 List<Map.Entry<org.bukkit.Material, Integer>> sortedDrops = new ArrayList<>(dropResult.droppedItems.entrySet());
@@ -361,6 +387,93 @@ public class DeathListener implements Listener {
 
             messageManager.sendMessageList(plugin, player, "death-penalty-no-items", placeholdersMap);
         }
+    }
+
+    private MoneyPenaltyResult applyMoneyPenalty(Player player, SoulPointsManager.DropRates dropRates) {
+        if (player == null || dropRates == null || dropRates.moneyPenalty <= 0.0D && dropRates.moneyEmptyCommands.isEmpty()) {
+            return MoneyPenaltyResult.empty();
+        }
+
+        Economy economy = plugin.getEconomy();
+        if (economy == null) {
+            if (dropRates.moneyPenalty > 0.0D) {
+                plugin.getLogger().warning("Vault economy not found; skipping money penalty for " + player.getName());
+            }
+            return MoneyPenaltyResult.empty();
+        }
+
+        double initialBalance = economy.getBalance(player);
+        double amountToWithdraw = 0.0D;
+
+        if (dropRates.moneyPenalty > 0.0D) {
+            if (dropRates.moneyMode == SoulPointsManager.DropRates.MoneyPenaltyMode.PERCENT) {
+                amountToWithdraw = initialBalance * (dropRates.moneyPenalty / 100.0D);
+            } else {
+                amountToWithdraw = dropRates.moneyPenalty;
+            }
+        }
+
+        amountToWithdraw = Math.max(0.0D, Math.min(amountToWithdraw, initialBalance));
+
+        double withdrawn = 0.0D;
+        double remaining = initialBalance;
+
+        if (amountToWithdraw > 0.0D) {
+            EconomyResponse response = economy.withdrawPlayer(player, amountToWithdraw);
+            if (response.transactionSuccess()) {
+                withdrawn = response.amount;
+                remaining = Math.max(0.0D, response.balance);
+            } else {
+                plugin.getLogger().warning("Failed to withdraw money penalty for " + player.getName() + ": " + response.errorMessage);
+                remaining = economy.getBalance(player);
+            }
+        }
+
+        boolean depleted = remaining <= BALANCE_EPSILON || (amountToWithdraw <= 0.0D && initialBalance <= BALANCE_EPSILON);
+
+        return new MoneyPenaltyResult(withdrawn, remaining, depleted);
+    }
+
+    private boolean isMaxHealthCritical(Player player) {
+        AttributeInstance attributeInstance = player.getAttribute(Attribute.GENERIC_MAX_HEALTH);
+        if (attributeInstance == null) {
+            return false;
+        }
+        double minAllowed = soulPointsManager.getMinimumMaxHealthPoints();
+        return attributeInstance.getValue() <= minAllowed + 0.0001D;
+    }
+
+    private void triggerCommands(List<String> commands, Player player) {
+        if (commands == null || commands.isEmpty()) {
+            return;
+        }
+        foliaLib.getImpl().runNextTick(task -> {
+            for (String command : commands) {
+                if (command == null || command.trim().isEmpty()) {
+                    continue;
+                }
+                String parsed = command.replace("%player%", player.getName());
+                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), parsed);
+            }
+        });
+    }
+
+    private String formatCurrency(double amount) {
+        if (amount <= 0.0D) {
+            return "0";
+        }
+        Economy economy = plugin.getEconomy();
+        if (economy != null) {
+            return economy.format(amount);
+        }
+        return String.format("%.2f", amount);
+    }
+
+    private String formatHearts(double hearts) {
+        if (hearts <= 0.0D) {
+            return "0 hearts";
+        }
+        return String.format("%.1f hearts", hearts);
     }
     
     private String formatMaterialName(org.bukkit.Material material) {
@@ -419,6 +532,22 @@ public class DeathListener implements Listener {
             this.totalItems = totalItems;
             this.itemsDropped = itemsDropped;
             this.droppedItems = droppedItems;
+        }
+    }
+
+    private static class MoneyPenaltyResult {
+        final double amountLost;
+        final double remainingBalance;
+        final boolean depleted;
+
+        MoneyPenaltyResult(double amountLost, double remainingBalance, boolean depleted) {
+            this.amountLost = amountLost;
+            this.remainingBalance = remainingBalance;
+            this.depleted = depleted;
+        }
+
+        static MoneyPenaltyResult empty() {
+            return new MoneyPenaltyResult(0.0D, 0.0D, false);
         }
     }
 }

@@ -12,12 +12,18 @@ debug: 2
 
 # Soul point settings
 default-penalty:
-  item-drop: 0
-  hotbar-drop: false
-  armor-drop: false
+  items:
+    drop-percent: 0
+    hotbar: false
+    armor: false
   money:
-    mode: "flat"
+    mode: "flat" # Options: "flat" or "percent"
     amount: 0.0
+  max-health:
+    amount: 0.0
+  commands:
+    on-money-empty: []
+    on-max-health-empty: []
 
 soul-points:
   enabled: true # Toggle to disable the soul points system entirely
@@ -28,55 +34,78 @@ soul-points:
     interval-seconds: 3600 # Seconds between recovery ticks
   drop-rates:
     10:
-      item-drop: 0      # % of items to drop from inventory
-      hotbar-drop: false # Include hotbar in drops
-      armor-drop: false  # Include armor in drops
+      items:
+        drop-percent: 0      # % of items to drop from inventory
+        hotbar: false        # Include hotbar in drops
+        armor: false         # Include armor in drops
     9:
-      item-drop: 10
-      hotbar-drop: false
-      armor-drop: false
+      items:
+        drop-percent: 10
+        hotbar: false
+        armor: false
       money:
         mode: "percent"
         amount: 5.0
+      max-health:
+        amount: 5.0
+      commands:
+        on-money-empty:
+          - "ban %player% Ran out of funds!"
+        on-max-health-empty:
+          - "kick %player% You have no heart left!"
     8:
-      item-drop: 20
-      hotbar-drop: false
-      armor-drop: false
+      items:
+        drop-percent: 20
+        hotbar: false
+        armor: false
     7:
-      item-drop: 30
-      hotbar-drop: true   # Hotbar becomes vulnerable
-      armor-drop: false
+      items:
+        drop-percent: 30
+        hotbar: true       # Hotbar becomes vulnerable
+        armor: false
     6:
-      item-drop: 40
-      hotbar-drop: true
-      armor-drop: false
+      items:
+        drop-percent: 40
+        hotbar: true
+        armor: false
     5:
-      item-drop: 50
-      hotbar-drop: true
-      armor-drop: false
+      items:
+        drop-percent: 50
+        hotbar: true
+        armor: false
       money:
         mode: "flat"
         amount: 150.0
+      max-health:
+        amount: 2.0
+      commands:
+        on-money-empty: []
+        on-max-health-empty: []
     4:
-      item-drop: 60
-      hotbar-drop: true
-      armor-drop: true    # Armor becomes vulnerable
+      items:
+        drop-percent: 60
+        hotbar: true
+        armor: true        # Armor becomes vulnerable
     3:
-      item-drop: 70
-      hotbar-drop: true
-      armor-drop: true
+      items:
+        drop-percent: 70
+        hotbar: true
+        armor: true
     2:
-      item-drop: 80
-      hotbar-drop: true
-      armor-drop: true
+      items:
+        drop-percent: 80
+        hotbar: true
+        armor: true
     1:
-      item-drop: 90
-      hotbar-drop: true
-      armor-drop: true
+      items:
+        drop-percent: 90
+        hotbar: true
+        armor: true
     0:
-      item-drop: 100
-      hotbar-drop: true
-      armor-drop: true    # Everything drops
+      items:
+        drop-percent: 100
+        hotbar: true
+        armor: true        # Everything drops
 
 # Message configuration
 messages:
@@ -89,6 +118,7 @@ messages:
     - "&7Items Lost: &c{items_dropped}&7/&f{total_items} &7(&c{drop_percentage}%&7)"
     - "&7Lost: {item_list}"
     - "&7Money Lost: {money_lost}"
+    - "&7Max Health Lost: {max_health_lost}"
     - "&7Experience: &cAll experience dropped"
     - ""
     - "&7Recovery: &f+1 soul point every {interval} &7({mode})"
@@ -102,6 +132,7 @@ messages:
     - "&7Soul Points: &f{old_points} &7→ &c{current_points}&7/&f{max_points}"
     - "&7Items Lost: &aNo items dropped"
     - "&7Money Lost: {money_lost}"
+    - "&7Max Health Lost: {max_health_lost}"
     - "&7Experience: &cAll experience dropped"
     - ""
     - "&7Recovery: &f+1 soul point every {interval} &7({mode})"
@@ -123,6 +154,7 @@ messages:
     - "  &cHotbar Drop: &f{hotbar_drop}"
     - "  &cArmor Drop: &f{armor_drop}"
     - "  &cMoney Loss: &f{money_drop}"
+    - "  &cMax Health Loss: &f{max_health_drop}"
     - ""
     - "&7Next Recovery: &f{recovery_time}"
     - "&8&m                                                "

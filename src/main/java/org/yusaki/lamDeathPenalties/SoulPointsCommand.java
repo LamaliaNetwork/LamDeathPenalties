@@ -296,6 +296,8 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
             "item_drop", String.valueOf(dropRates.itemDrop),
             "hotbar_drop", dropRates.hotbarDrop ? messageManager.getMessage(plugin, "yes") : messageManager.getMessage(plugin, "no"),
             "armor_drop", dropRates.armorDrop ? messageManager.getMessage(plugin, "yes") : messageManager.getMessage(plugin, "no"),
+            "money_drop", formatMoneyDrop(dropRates),
+            "max_health_drop", formatHearts(dropRates.maxHealthPenalty),
             "recovery_time", recoveryTime
         ));
     }
@@ -335,6 +337,23 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
         } else {
             return String.format("%ds", seconds);
         }
+    }
+
+    private String formatMoneyDrop(SoulPointsManager.DropRates dropRates) {
+        if (dropRates == null) {
+            return "0";
+        }
+        if (dropRates.moneyMode == SoulPointsManager.DropRates.MoneyPenaltyMode.PERCENT) {
+            return String.format("%.2f%%", dropRates.moneyPenalty);
+        }
+        return String.format("%.2f", dropRates.moneyPenalty);
+    }
+
+    private String formatHearts(double hearts) {
+        if (hearts <= 0.0D) {
+            return "0 hearts";
+        }
+        return String.format("%.1f hearts", hearts);
     }
     
     private void sendHelpMessage(CommandSender sender) {

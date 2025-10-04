@@ -1,10 +1,14 @@
 package org.yusaki.lamDeathPenalties;
 
 import com.tcoded.folialib.FoliaLib;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import net.milkbowl.vault.economy.Economy;
+import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.yusaki.lamDeathPenalties.api.LamDeathPenaltiesAPI;
@@ -20,6 +24,7 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
     private DeathListener deathListener;
     private SoulPointsCommand soulPointsCommand;
     private boolean soulPointsEnabled = true;
+    private Economy economy;
     @Override
     public void onEnable() {
         // Get YskLib instance
@@ -43,12 +48,17 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
         yskLib.loadMessages(this);
 
         loadSettings();
+        setupEconomy();
 
         // Initialize managers
         soulPointsManager = new SoulPointsManager(this);
         recoveryScheduler = new RecoveryScheduler(this, soulPointsManager, foliaLib);
         deathListener = new DeathListener(this, soulPointsManager, foliaLib);
         soulPointsCommand = new SoulPointsCommand(this, soulPointsManager, recoveryScheduler);
+
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            soulPointsManager.refreshPlayerMaxHealth(player);
+        }
         
         // Register events
         getServer().getPluginManager().registerEvents(deathListener, this);
@@ -79,6 +89,9 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
     public void onDisable() {
         // Save player data before shutdown
         if (soulPointsManager != null) {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                soulPointsManager.clearMaxHealthPenalty(player);
+            }
             soulPointsManager.savePlayerData();
         }
 
@@ -95,6 +108,7 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
         if (recoveryScheduler != null) {
             recoveryScheduler.onPlayerJoin(event.getPlayer().getUniqueId());
         }
+        soulPointsManager.refreshPlayerMaxHealth(event.getPlayer());
     }
 
     @EventHandler
@@ -144,6 +158,7 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
         }
 
         loadSettings();
+        setupEconomy();
 
         yskLib.logInfo(this, "Plugin configuration reloaded!");
     }
@@ -165,6 +180,43 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
         }
     }
 
+    private void setupEconomy() {
+        economy = null;
+        if (getServer().getPluginManager().getPlugin("Vault") == null) {
+            if (yskLib != null) {
+                yskLib.logInfo(this, "Vault not found; money penalties will be disabled.");
+            } else {
+                getLogger().info("Vault not found; money penalties will be disabled.");
+            }
+            return;
+        }
+
+        RegisteredServiceProvider<Economy> registration = getServer().getServicesManager().getRegistration(Economy.class);
+        if (registration == null) {
+            if (yskLib != null) {
+                yskLib.logWarn(this, "No Vault economy provider detected.");
+            } else {
+                getLogger().warning("No Vault economy provider detected.");
+            }
+            return;
+        }
+
+        economy = registration.getProvider();
+        if (economy != null) {
+            if (yskLib != null) {
+                yskLib.logInfo(this, "Vault economy integration enabled.");
+            } else {
+                getLogger().info("Vault economy integration enabled.");
+            }
+        } else {
+            if (yskLib != null) {
+                yskLib.logWarn(this, "Vault economy provider could not be initialized.");
+            } else {
+                getLogger().warning("Vault economy provider could not be initialized.");
+            }
+        }
+    }
+
     public String getRecoveryMode() {
         String mode = getConfig().getString("soul-points.recovery.mode");
         if (mode == null) {
@@ -180,5 +232,13 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
         }
         long hours = getConfig().getLong("recovery.interval-hours", 1L);
         return Math.max(1L, hours * 3600L);
+    }
+
+    public Economy getEconomy() {
+        return economy;
+    }
+
+    public boolean hasEconomy() {
+        return economy != null;
     }
 }
