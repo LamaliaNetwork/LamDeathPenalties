@@ -35,9 +35,12 @@ public class LamDeathPenaltiesAPIImpl implements LamDeathPenaltiesAPI {
     
     @Override
     public boolean setSoulPoints(UUID playerId, int points) {
+        if (!plugin.isSoulPointsEnabled()) {
+            return false;
+        }
         Player player = Bukkit.getPlayer(playerId);
         if (player == null) return false;
-        
+
         int oldPoints = soulPointsManager.getSoulPoints(playerId);
         int clampedPoints = Math.max(0, Math.min(points, getMaxSoulPoints()));
         
@@ -70,9 +73,12 @@ public class LamDeathPenaltiesAPIImpl implements LamDeathPenaltiesAPI {
     
     @Override
     public boolean addSoulPoints(UUID playerId, int points) {
+        if (!plugin.isSoulPointsEnabled()) {
+            return false;
+        }
         Player player = Bukkit.getPlayer(playerId);
         if (player == null) return false;
-        
+
         int oldPoints = soulPointsManager.getSoulPoints(playerId);
         int newPoints = Math.max(0, Math.min(oldPoints + points, getMaxSoulPoints()));
         
@@ -130,12 +136,17 @@ public class LamDeathPenaltiesAPIImpl implements LamDeathPenaltiesAPI {
     public DropRates getPlayerDropRates(Player player) {
         return getPlayerDropRates(player.getUniqueId());
     }
-    
+
     @Override
     public int getMaxSoulPoints() {
         return plugin.getConfig().getInt("soul-points.max", 10);
     }
-    
+
+    @Override
+    public boolean isSoulPointsEnabled() {
+        return plugin.isSoulPointsEnabled();
+    }
+
     @Override
     public int getStartingSoulPoints() {
         return plugin.getConfig().getInt("soul-points.starting", 10);
@@ -169,9 +180,12 @@ public class LamDeathPenaltiesAPIImpl implements LamDeathPenaltiesAPI {
     
     @Override
     public boolean processRecovery(UUID playerId) {
+        if (!plugin.isSoulPointsEnabled()) {
+            return false;
+        }
         Player player = Bukkit.getPlayer(playerId);
         if (player == null) return false;
-        
+
         int oldPoints = soulPointsManager.getSoulPoints(playerId);
         soulPointsManager.processRecovery(playerId);
         int newPoints = soulPointsManager.getSoulPoints(playerId);

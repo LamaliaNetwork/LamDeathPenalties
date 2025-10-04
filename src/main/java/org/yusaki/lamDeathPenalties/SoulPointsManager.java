@@ -31,6 +31,10 @@ public class SoulPointsManager {
     }
     
     public int getSoulPoints(UUID playerId) {
+        if (!plugin.isSoulPointsEnabled()) {
+            PlayerSoulData data = playerData.get(playerId);
+            return data != null ? data.soulPoints : plugin.getConfig().getInt("soul-points.starting", 10);
+        }
         PlayerSoulData data = playerData.get(playerId);
         if (data == null) {
             // New player, create with starting soul points
@@ -44,6 +48,9 @@ public class SoulPointsManager {
     }
     
     public void setSoulPoints(UUID playerId, int points) {
+        if (!plugin.isSoulPointsEnabled()) {
+            return;
+        }
         int maxPoints = plugin.getConfig().getInt("soul-points.max", 10);
         int oldPoints = playerData.containsKey(playerId) ? playerData.get(playerId).soulPoints : 0;
         points = Math.max(0, Math.min(points, maxPoints));
@@ -63,20 +70,29 @@ public class SoulPointsManager {
     }
     
     public void addSoulPoints(UUID playerId, int points) {
+        if (!plugin.isSoulPointsEnabled()) {
+            return;
+        }
         int current = getSoulPoints(playerId);
         setSoulPoints(playerId, current + points);
     }
-    
+
     public void removeSoulPoints(UUID playerId, int points) {
+        if (!plugin.isSoulPointsEnabled()) {
+            return;
+        }
         int current = getSoulPoints(playerId);
         setSoulPoints(playerId, current - points);
     }
-    
+
     public void removeSoulPoint(UUID playerId) {
         removeSoulPointWithReason(playerId, SoulPointsChangeEvent.ChangeReason.DEATH);
     }
     
     public void removeSoulPointWithReason(UUID playerId, SoulPointsChangeEvent.ChangeReason reason) {
+        if (!plugin.isSoulPointsEnabled()) {
+            return;
+        }
         Player player = Bukkit.getPlayer(playerId);
         if (player != null) {
             setSoulPointsWithReason(playerId, getSoulPoints(playerId) - 1, reason);
@@ -87,6 +103,9 @@ public class SoulPointsManager {
     }
     
     public void setSoulPointsWithReason(UUID playerId, int points, SoulPointsChangeEvent.ChangeReason reason) {
+        if (!plugin.isSoulPointsEnabled()) {
+            return;
+        }
         Player player = Bukkit.getPlayer(playerId);
         if (player == null) {
             setSoulPoints(playerId, points);
@@ -117,34 +136,81 @@ public class SoulPointsManager {
     }
     
     public DropRates getDropRates(int soulPoints) {
-        ConfigurationSection dropConfig = plugin.getConfig().getConfigurationSection("drop-rates." + soulPoints);
-        if (dropConfig == null) {
-            // Fallback to 0 soul points config if level doesn't exist
-            dropConfig = plugin.getConfig().getConfigurationSection("drop-rates.0");
+        if (!plugin.isSoulPointsEnabled()) {
+            return getDefaultDropRates();
         }
-        
-        int itemDrop = dropConfig.getInt("item-drop", 100);
-        boolean hotbarDrop = dropConfig.getBoolean("hotbar-drop", true);
-        boolean armorDrop = dropConfig.getBoolean("armor-drop", true);
-        
+
+        ConfigurationSection dropRatesRoot = plugin.getConfig().getConfigurationSection("soul-points.drop-rates");
+        ConfigurationSection dropConfig = findDropConfig(dropRatesRoot, soulPoints);
+
+        if (dropConfig == null) {
+            // Legacy fallback for older configs that used top-level drop-rates
+            ConfigurationSection legacyDropRates = plugin.getConfig().getConfigurationSection("drop-rates");
+            dropConfig = findDropConfig(legacyDropRates, soulPoints);
+        }
+
+        if (dropConfig != null) {
+            return buildDropRates(dropConfig);
+        }
+
+        return getDefaultDropRates();
+    }
+
+    private ConfigurationSection findDropConfig(ConfigurationSection root, int soulPoints) {
+        if (root == null) {
+            return null;
+        }
+
+        int maxPoints = plugin.getConfig().getInt("soul-points.max", 10);
+        int target = Math.max(0, Math.min(soulPoints, maxPoints));
+
+        for (int level = target; level <= maxPoints; level++) {
+            ConfigurationSection section = root.getConfigurationSection(String.valueOf(level));
+            if (section != null) {
+                return section;
+            }
+        }
+
+        return null;
+    }
+
+    private DropRates buildDropRates(ConfigurationSection section) {
+        int itemDrop = section.getInt("item-drop", 100);
+        boolean hotbarDrop = section.getBoolean("hotbar-drop", true);
+        boolean armorDrop = section.getBoolean("armor-drop", true);
+
+        return new DropRates(itemDrop, hotbarDrop, armorDrop);
+    }
+
+    private DropRates getDefaultDropRates() {
+        int itemDrop = plugin.getConfig().getInt("default-penalty.item-drop", 0);
+        boolean hotbarDrop = plugin.getConfig().getBoolean("default-penalty.hotbar-drop", false);
+        boolean armorDrop = plugin.getConfig().getBoolean("default-penalty.armor-drop", false);
+
         return new DropRates(itemDrop, hotbarDrop, armorDrop);
     }
     
     public void updatePlayTime(UUID playerId, long sessionTime) {
+        if (!plugin.isSoulPointsEnabled()) {
+            return;
+        }
         PlayerSoulData data = playerData.get(playerId);
         if (data != null) {
             data.totalPlayTime += sessionTime;
             savePlayerData();
         }
     }
-    
+
     public void processRecovery(UUID playerId) {
+        if (!plugin.isSoulPointsEnabled()) {
+            return;
+        }
         PlayerSoulData data = playerData.get(playerId);
         if (data == null) return;
         
-        String recoveryMode = plugin.getConfig().getString("recovery.mode", "real-time");
-        int intervalHours = plugin.getConfig().getInt("recovery.interval-hours", 1);
-        long intervalMs = intervalHours * 60 * 60 * 1000L;
+        String recoveryMode = plugin.getRecoveryMode();
+        long intervalSeconds = plugin.getRecoveryIntervalSeconds();
+        long intervalMs = intervalSeconds * 1000L;
         
         long currentTime = System.currentTimeMillis();
         long timeSinceLastRecovery = currentTime - data.lastRecoveryTime;
@@ -169,11 +235,14 @@ public class SoulPointsManager {
     }
     
     public long getTimeUntilNextRecovery(UUID playerId) {
+        if (!plugin.isSoulPointsEnabled()) {
+            return 0;
+        }
         PlayerSoulData data = playerData.get(playerId);
         if (data == null) return 0;
         
-        int intervalHours = plugin.getConfig().getInt("recovery.interval-hours", 1);
-        long intervalMs = intervalHours * 60 * 60 * 1000L;
+        long intervalSeconds = plugin.getRecoveryIntervalSeconds();
+        long intervalMs = intervalSeconds * 1000L;
         long timeSinceLastRecovery = System.currentTimeMillis() - data.lastRecoveryTime;
         
         return Math.max(0, intervalMs - timeSinceLastRecovery);

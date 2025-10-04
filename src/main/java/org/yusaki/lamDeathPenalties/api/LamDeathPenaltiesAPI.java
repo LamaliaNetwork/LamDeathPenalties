@@ -99,7 +99,13 @@ public interface LamDeathPenaltiesAPI {
      * @return Maximum soul points (default 10)
      */
     int getMaxSoulPoints();
-    
+
+    /**
+     * Check whether the soul points system is currently enabled
+     * @return true if enabled, false if disabled via configuration
+     */
+    boolean isSoulPointsEnabled();
+
     /**
      * Get the starting soul points value for new players
      * @return Starting soul points (default 10)

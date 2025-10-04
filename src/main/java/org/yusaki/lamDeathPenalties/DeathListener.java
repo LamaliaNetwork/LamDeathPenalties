@@ -30,6 +30,11 @@ public class DeathListener implements Listener {
     public void onPlayerDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
 
+        if (!plugin.isSoulPointsEnabled()) {
+            plugin.getYskLib().logDebug(plugin, "Soul points system disabled - skipping death handling for " + player.getName());
+            return;
+        }
+
         plugin.getYskLib().logDebug(plugin, "Processing death event for player: " + player.getName());
 
         // Check if player has bypass permission - if so, behave like keepInventory
@@ -338,9 +343,9 @@ public class DeathListener implements Listener {
 
             // Show recovery info
             if (currentSoulPoints < maxSoulPoints) {
-                String recoveryMode = plugin.getConfig().getString("recovery.mode", "real-time");
-                int recoveryHours = plugin.getConfig().getInt("recovery.interval-hours", 1);
-                placeholdersMap.put("hours", String.valueOf(recoveryHours));
+                String recoveryMode = plugin.getRecoveryMode();
+                long recoverySeconds = plugin.getRecoveryIntervalSeconds();
+                placeholdersMap.put("interval", formatInterval(recoverySeconds));
                 placeholdersMap.put("mode", recoveryMode);
             }
 
@@ -348,9 +353,9 @@ public class DeathListener implements Listener {
         } else {
             // Show recovery info for no-items case
             if (currentSoulPoints < maxSoulPoints) {
-                String recoveryMode = plugin.getConfig().getString("recovery.mode", "real-time");
-                int recoveryHours = plugin.getConfig().getInt("recovery.interval-hours", 1);
-                placeholdersMap.put("hours", String.valueOf(recoveryHours));
+                String recoveryMode = plugin.getRecoveryMode();
+                long recoverySeconds = plugin.getRecoveryIntervalSeconds();
+                placeholdersMap.put("interval", formatInterval(recoverySeconds));
                 placeholdersMap.put("mode", recoveryMode);
             }
 
@@ -367,6 +372,28 @@ public class DeathListener implements Listener {
             result.append(word.substring(0, 1).toUpperCase()).append(word.substring(1));
         }
         return result.toString();
+    }
+
+    private String formatInterval(long seconds) {
+        long remainingSeconds = seconds;
+        long hours = remainingSeconds / 3600;
+        remainingSeconds %= 3600;
+        long minutes = remainingSeconds / 60;
+        remainingSeconds %= 60;
+
+        StringBuilder builder = new StringBuilder();
+        if (hours > 0) {
+            builder.append(hours).append("h");
+        }
+        if (minutes > 0) {
+            if (builder.length() > 0) builder.append(' ');
+            builder.append(minutes).append("m");
+        }
+        if (remainingSeconds > 0 || builder.length() == 0) {
+            if (builder.length() > 0) builder.append(' ');
+            builder.append(remainingSeconds).append("s");
+        }
+        return builder.toString();
     }
     
     // Helper class to track item positions

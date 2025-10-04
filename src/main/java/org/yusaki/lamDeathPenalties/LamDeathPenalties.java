@@ -19,6 +19,7 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
     private RecoveryScheduler recoveryScheduler;
     private DeathListener deathListener;
     private SoulPointsCommand soulPointsCommand;
+    private boolean soulPointsEnabled = true;
     @Override
     public void onEnable() {
         // Get YskLib instance
@@ -40,6 +41,8 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
 
         // Load messages via YskLib
         yskLib.loadMessages(this);
+
+        loadSettings();
 
         // Initialize managers
         soulPointsManager = new SoulPointsManager(this);
@@ -86,13 +89,19 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
     
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
+        if (!isSoulPointsEnabled()) {
+            return;
+        }
         if (recoveryScheduler != null) {
             recoveryScheduler.onPlayerJoin(event.getPlayer().getUniqueId());
         }
     }
-    
+
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
+        if (!isSoulPointsEnabled()) {
+            return;
+        }
         if (recoveryScheduler != null) {
             recoveryScheduler.onPlayerQuit(event.getPlayer().getUniqueId());
         }
@@ -134,10 +143,42 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
             reloadConfig();
         }
 
+        loadSettings();
+
         yskLib.logInfo(this, "Plugin configuration reloaded!");
     }
 
     public YskLib getYskLib() {
         return yskLib;
+    }
+
+    public boolean isSoulPointsEnabled() {
+        return soulPointsEnabled;
+    }
+
+    private void loadSettings() {
+        soulPointsEnabled = getConfig().getBoolean("soul-points.enabled", true);
+        if (yskLib != null) {
+            yskLib.logDebug(this, "Soul points system enabled: " + soulPointsEnabled);
+        } else {
+            getLogger().info("Soul points system enabled: " + soulPointsEnabled);
+        }
+    }
+
+    public String getRecoveryMode() {
+        String mode = getConfig().getString("soul-points.recovery.mode");
+        if (mode == null) {
+            mode = getConfig().getString("recovery.mode", "real-time");
+        }
+        return mode;
+    }
+
+    public long getRecoveryIntervalSeconds() {
+        if (getConfig().isSet("soul-points.recovery.interval-seconds")) {
+            long seconds = getConfig().getLong("soul-points.recovery.interval-seconds", 3600L);
+            return Math.max(1L, seconds);
+        }
+        long hours = getConfig().getLong("recovery.interval-hours", 1L);
+        return Math.max(1L, hours * 3600L);
     }
 }

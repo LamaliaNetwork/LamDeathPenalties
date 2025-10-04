@@ -10,62 +10,64 @@ version: 0.4
 # 3 = Debug (detailed troubleshooting)
 debug: 2
 
-# Recovery settings
-recovery:
-  mode: "real-time"  # Options: "real-time" or "active-time"
-  interval-hours: 1
-
 # Soul point settings
+default-penalty:
+  item-drop: 0
+  hotbar-drop: false
+  armor-drop: false
+
 soul-points:
+  enabled: true # Toggle to disable the soul points system entirely
   max: 10
   starting: 10
-
-# Drop rates per soul point level (0-10)
-drop-rates:
-  10:
-    item-drop: 0      # % of items to drop from inventory
-    hotbar-drop: false # Include hotbar in drops
-    armor-drop: false  # Include armor in drops
-  9:
-    item-drop: 10
-    hotbar-drop: false
-    armor-drop: false
-  8:
-    item-drop: 20
-    hotbar-drop: false
-    armor-drop: false
-  7:
-    item-drop: 30
-    hotbar-drop: true   # Hotbar becomes vulnerable
-    armor-drop: false
-  6:
-    item-drop: 40
-    hotbar-drop: true
-    armor-drop: false
-  5:
-    item-drop: 50
-    hotbar-drop: true
-    armor-drop: false
-  4:
-    item-drop: 60
-    hotbar-drop: true
-    armor-drop: true    # Armor becomes vulnerable
-  3:
-    item-drop: 70
-    hotbar-drop: true
-    armor-drop: true
-  2:
-    item-drop: 80
-    hotbar-drop: true
-    armor-drop: true
-  1:
-    item-drop: 90
-    hotbar-drop: true
-    armor-drop: true
-  0:
-    item-drop: 100
-    hotbar-drop: true
-    armor-drop: true    # Everything drops
+  recovery:
+    mode: "real-time"      # Options: "real-time" or "active-time"
+    interval-seconds: 3600 # Seconds between recovery ticks
+  drop-rates:
+    10:
+      item-drop: 0      # % of items to drop from inventory
+      hotbar-drop: false # Include hotbar in drops
+      armor-drop: false  # Include armor in drops
+    9:
+      item-drop: 10
+      hotbar-drop: false
+      armor-drop: false
+    8:
+      item-drop: 20
+      hotbar-drop: false
+      armor-drop: false
+    7:
+      item-drop: 30
+      hotbar-drop: true   # Hotbar becomes vulnerable
+      armor-drop: false
+    6:
+      item-drop: 40
+      hotbar-drop: true
+      armor-drop: false
+    5:
+      item-drop: 50
+      hotbar-drop: true
+      armor-drop: false
+    4:
+      item-drop: 60
+      hotbar-drop: true
+      armor-drop: true    # Armor becomes vulnerable
+    3:
+      item-drop: 70
+      hotbar-drop: true
+      armor-drop: true
+    2:
+      item-drop: 80
+      hotbar-drop: true
+      armor-drop: true
+    1:
+      item-drop: 90
+      hotbar-drop: true
+      armor-drop: true
+    0:
+      item-drop: 100
+      hotbar-drop: true
+      armor-drop: true    # Everything drops
 
 # Message configuration
 messages:
@@ -79,7 +81,7 @@ messages:
     - "&7Lost: {item_list}"
     - "&7Experience: &cAll experience dropped"
     - ""
-    - "&7Recovery: &f+1 soul point every {hours}h &7({mode})"
+    - "&7Recovery: &f+1 soul point every {interval} &7({mode})"
     - "&8&m                                                "
 
   # Alternative when no items are dropped
@@ -91,7 +93,7 @@ messages:
     - "&7Items Lost: &aNo items dropped"
     - "&7Experience: &cAll experience dropped"
     - ""
-    - "&7Recovery: &f+1 soul point every {hours}h &7({mode})"
+    - "&7Recovery: &f+1 soul point every {interval} &7({mode})"
     - "&8&m                                                "
 
   # Recovery notification
@@ -133,6 +135,7 @@ messages:
   player-not-found: "&cPlayer not found: {player}"
   invalid-number: "&cInvalid number: {input}"
   config-reloaded: "&aPlugin configuration reloaded!"
+  soul-points-disabled: "&cSoul points system is currently disabled."
 
   # Set command messages
   set-usage: "&cUsage: /lmdp set <player> <amount>"

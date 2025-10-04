@@ -31,6 +31,10 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
         org.yusaki.lib.modules.MessageManager messageManager = plugin.getMessageManager();
 
         if (args.length == 0) {
+            if (!plugin.isSoulPointsEnabled()) {
+                messageManager.sendMessage(plugin, sender, "soul-points-disabled");
+                return true;
+            }
             // Show current soul points
             if (!(sender instanceof Player)) {
                 messageManager.sendMessage(plugin, sender, "player-only");
@@ -41,9 +45,14 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
             showSoulPoints(player, player);
             return true;
         }
-        
+
         String subCommand = args[0].toLowerCase();
-        
+
+        if (!plugin.isSoulPointsEnabled() && !subCommand.equals("reload")) {
+            messageManager.sendMessage(plugin, sender, "soul-points-disabled");
+            return true;
+        }
+
         switch (subCommand) {
             case "set":
                 return handleSetCommand(sender, args);
@@ -348,7 +357,16 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         List<String> completions = new ArrayList<>();
-        
+
+        if (!plugin.isSoulPointsEnabled()) {
+            if (args.length == 1 && sender.hasPermission("lmdp.admin")) {
+                if ("reload".startsWith(args[0].toLowerCase())) {
+                    completions.add("reload");
+                }
+            }
+            return completions;
+        }
+
         if (args.length == 1) {
             List<String> subCommands = Arrays.asList("check");
             if (sender.hasPermission("lmdp.admin")) {

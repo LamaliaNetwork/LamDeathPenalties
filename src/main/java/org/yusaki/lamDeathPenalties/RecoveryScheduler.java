@@ -33,8 +33,11 @@ public class RecoveryScheduler {
     }
     
     private void processAllPlayerRecovery() {
-        String recoveryMode = plugin.getConfig().getString("recovery.mode", "real-time");
-        
+        if (!plugin.isSoulPointsEnabled()) {
+            return;
+        }
+        String recoveryMode = plugin.getRecoveryMode();
+
         if (recoveryMode.equals("real-time")) {
             processRealTimeRecovery();
         } else if (recoveryMode.equals("active-time")) {
@@ -55,8 +58,8 @@ public class RecoveryScheduler {
     
     private void processActiveTimeRecovery() {
         long currentTime = System.currentTimeMillis();
-        int intervalHours = plugin.getConfig().getInt("recovery.interval-hours", 1);
-        long intervalMs = intervalHours * 60 * 60 * 1000L;
+        long intervalSeconds = plugin.getRecoveryIntervalSeconds();
+        long intervalMs = intervalSeconds * 1000L;
         
         for (Player player : Bukkit.getOnlinePlayers()) {
             UUID playerId = player.getUniqueId();
@@ -99,7 +102,10 @@ public class RecoveryScheduler {
     }
     
     public void onPlayerJoin(UUID playerId) {
-        String recoveryMode = plugin.getConfig().getString("recovery.mode", "real-time");
+        if (!plugin.isSoulPointsEnabled()) {
+            return;
+        }
+        String recoveryMode = plugin.getRecoveryMode();
 
         Player player = Bukkit.getPlayer(playerId);
         String playerName = player != null ? player.getName() : playerId.toString();
@@ -116,8 +122,11 @@ public class RecoveryScheduler {
     }
     
     public void onPlayerQuit(UUID playerId) {
-        String recoveryMode = plugin.getConfig().getString("recovery.mode", "real-time");
-        
+        if (!plugin.isSoulPointsEnabled()) {
+            return;
+        }
+        String recoveryMode = plugin.getRecoveryMode();
+
         if (recoveryMode.equals("active-time")) {
             // Update total play time and remove from session tracking
             Long sessionStart = playerSessionStartTimes.remove(playerId);
@@ -129,8 +138,11 @@ public class RecoveryScheduler {
     }
     
     public long getTimeUntilNextRecovery(UUID playerId) {
-        String recoveryMode = plugin.getConfig().getString("recovery.mode", "real-time");
-        
+        if (!plugin.isSoulPointsEnabled()) {
+            return 0;
+        }
+        String recoveryMode = plugin.getRecoveryMode();
+
         if (recoveryMode.equals("real-time")) {
             return soulPointsManager.getTimeUntilNextRecovery(playerId);
         } else if (recoveryMode.equals("active-time")) {
@@ -139,10 +151,10 @@ public class RecoveryScheduler {
                 return 0; // Player not online
             }
             
-            int intervalHours = plugin.getConfig().getInt("recovery.interval-hours", 1);
-            long intervalMs = intervalHours * 60 * 60 * 1000L;
+            long intervalSeconds = plugin.getRecoveryIntervalSeconds();
+            long intervalMs = intervalSeconds * 1000L;
             long sessionTime = System.currentTimeMillis() - sessionStart;
-            
+
             return Math.max(0, intervalMs - sessionTime);
         }
         
