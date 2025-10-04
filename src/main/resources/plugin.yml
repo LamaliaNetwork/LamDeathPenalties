@@ -1,10 +1,11 @@
 name: LamDeathPenalties
 version: '${project.version}'
 main: org.yusaki.lamDeathPenalties.LamDeathPenalties
-api-version: '1.21'
+api-version: '1.20'
 folia-supported: true
+author: YusakiDev
 depend: [YskLib]
-softdepend: [PlaceholderAPI]
+softdepend: [PlaceholderAPI, Vault]
 
 commands:
   lmdp:

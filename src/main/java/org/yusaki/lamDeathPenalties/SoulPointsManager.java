@@ -141,6 +141,7 @@ public class SoulPointsManager {
         }
 
         ConfigurationSection dropRatesRoot = plugin.getConfig().getConfigurationSection("soul-points.drop-rates");
+        MoneyPenaltyConfig defaultMoney = getDefaultMoneyPenalty();
         ConfigurationSection dropConfig = findDropConfig(dropRatesRoot, soulPoints);
 
         if (dropConfig == null) {
@@ -150,7 +151,7 @@ public class SoulPointsManager {
         }
 
         if (dropConfig != null) {
-            return buildDropRates(dropConfig);
+            return buildDropRates(dropConfig, defaultMoney);
         }
 
         return getDefaultDropRates();
@@ -174,20 +175,63 @@ public class SoulPointsManager {
         return null;
     }
 
-    private DropRates buildDropRates(ConfigurationSection section) {
+    private DropRates buildDropRates(ConfigurationSection section, MoneyPenaltyConfig defaultMoney) {
         int itemDrop = section.getInt("item-drop", 100);
         boolean hotbarDrop = section.getBoolean("hotbar-drop", true);
         boolean armorDrop = section.getBoolean("armor-drop", true);
+        MoneyPenaltyConfig moneyPenalty = resolveMoneyPenalty(section, defaultMoney);
 
-        return new DropRates(itemDrop, hotbarDrop, armorDrop);
+        return new DropRates(itemDrop, hotbarDrop, armorDrop, moneyPenalty.amount, moneyPenalty.mode);
     }
 
     private DropRates getDefaultDropRates() {
         int itemDrop = plugin.getConfig().getInt("default-penalty.item-drop", 0);
         boolean hotbarDrop = plugin.getConfig().getBoolean("default-penalty.hotbar-drop", false);
         boolean armorDrop = plugin.getConfig().getBoolean("default-penalty.armor-drop", false);
+        MoneyPenaltyConfig moneyPenalty = getDefaultMoneyPenalty();
 
-        return new DropRates(itemDrop, hotbarDrop, armorDrop);
+        return new DropRates(itemDrop, hotbarDrop, armorDrop, moneyPenalty.amount, moneyPenalty.mode);
+    }
+
+    private MoneyPenaltyConfig getDefaultMoneyPenalty() {
+        ConfigurationSection moneySection = plugin.getConfig().getConfigurationSection("default-penalty.money");
+        DropRates.MoneyPenaltyMode mode = DropRates.MoneyPenaltyMode.FLAT;
+        double amount = 0.0D;
+
+        if (moneySection != null) {
+            mode = DropRates.MoneyPenaltyMode.fromString(moneySection.getString("mode"), DropRates.MoneyPenaltyMode.FLAT);
+            amount = moneySection.getDouble("amount", 0.0D);
+        } else if (plugin.getConfig().isSet("default-penalty.money")) {
+            amount = plugin.getConfig().getDouble("default-penalty.money", 0.0D);
+        }
+
+        return new MoneyPenaltyConfig(amount, mode);
+    }
+
+    private MoneyPenaltyConfig resolveMoneyPenalty(ConfigurationSection section, MoneyPenaltyConfig fallback) {
+        if (section == null) {
+            return fallback;
+        }
+
+        MoneyPenaltyConfig result = fallback;
+
+        if (section.isConfigurationSection("money")) {
+            ConfigurationSection moneySection = section.getConfigurationSection("money");
+            if (moneySection != null) {
+                DropRates.MoneyPenaltyMode mode = DropRates.MoneyPenaltyMode.fromString(
+                    moneySection.getString("mode"),
+                    fallback != null ? fallback.mode : DropRates.MoneyPenaltyMode.FLAT
+                );
+                double amount = moneySection.getDouble("amount", fallback != null ? fallback.amount : 0.0D);
+                result = new MoneyPenaltyConfig(amount, mode);
+            }
+        } else if (section.isSet("money")) {
+            double amount = section.getDouble("money");
+            DropRates.MoneyPenaltyMode mode = fallback != null ? fallback.mode : DropRates.MoneyPenaltyMode.FLAT;
+            result = new MoneyPenaltyConfig(amount, mode);
+        }
+
+        return result;
     }
     
     public void updatePlayTime(UUID playerId, long sessionTime) {
@@ -292,15 +336,51 @@ public class SoulPointsManager {
         }
     }
     
+    private static class MoneyPenaltyConfig {
+        final double amount;
+        final DropRates.MoneyPenaltyMode mode;
+
+        MoneyPenaltyConfig(double amount, DropRates.MoneyPenaltyMode mode) {
+            this.amount = amount;
+            this.mode = mode;
+        }
+    }
+
     public static class DropRates {
         public final int itemDrop;
         public final boolean hotbarDrop;
         public final boolean armorDrop;
+        public final double moneyPenalty;
+        public final MoneyPenaltyMode moneyMode;
         
-        public DropRates(int itemDrop, boolean hotbarDrop, boolean armorDrop) {
+        public DropRates(int itemDrop, boolean hotbarDrop, boolean armorDrop, double moneyPenalty, MoneyPenaltyMode moneyMode) {
             this.itemDrop = itemDrop;
             this.hotbarDrop = hotbarDrop;
             this.armorDrop = armorDrop;
+            this.moneyPenalty = moneyPenalty;
+            this.moneyMode = moneyMode;
+        }
+
+        public enum MoneyPenaltyMode {
+            FLAT,
+            PERCENT;
+
+            public static MoneyPenaltyMode fromString(String value, MoneyPenaltyMode fallback) {
+                if (value == null) {
+                    return fallback;
+                }
+
+                switch (value.toLowerCase()) {
+                    case "flat":
+                    case "absolute":
+                        return FLAT;
+                    case "percent":
+                    case "percentage":
+                        return PERCENT;
+                    default:
+                        return fallback;
+                }
+            }
         }
     }
 }
