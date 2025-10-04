@@ -90,7 +90,7 @@ public class DeathListener implements Listener {
         if (maxHealthResult.deltaHearts > 0.0D && isMaxHealthCritical(player)) {
             triggerCommands(dropRates.maxHealthEmptyCommands, player);
         }
-        plugin.getYskLib().logDebug(plugin, "Max health penalty applied: " + maxHealthResult.deltaHearts + " hearts for " + player.getName());
+        plugin.getYskLib().logDebug(plugin, "Max health change applied: " + formatHearts(maxHealthResult.deltaHearts) + " for " + player.getName());
         if (moneyResult.amountLost > 0.0D) {
             plugin.getYskLib().logDebug(plugin, "Money penalty applied: " + moneyResult.amountLost + " for " + player.getName());
         }
@@ -470,10 +470,12 @@ public class DeathListener implements Listener {
     }
 
     private String formatHearts(double hearts) {
-        if (hearts <= 0.0D) {
+        double absolute = Math.abs(hearts);
+        if (absolute <= 0.0001D) {
             return "0 hearts";
         }
-        return String.format("%.1f hearts", hearts);
+        String sign = hearts > 0.0D ? "-" : "+";
+        return String.format("%s%.1f hearts", sign, absolute);
     }
     
     private String formatMaterialName(org.bukkit.Material material) {

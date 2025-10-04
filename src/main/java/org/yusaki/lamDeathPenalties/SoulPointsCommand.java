@@ -297,7 +297,7 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
             "hotbar_drop", dropRates.hotbarDrop ? messageManager.getMessage(plugin, "yes") : messageManager.getMessage(plugin, "no"),
             "armor_drop", dropRates.armorDrop ? messageManager.getMessage(plugin, "yes") : messageManager.getMessage(plugin, "no"),
             "money_drop", formatMoneyDrop(dropRates),
-            "max_health_drop", formatHearts(dropRates.maxHealthPenalty),
+            "max_health_drop", formatMaxHealthDrop(dropRates),
             "recovery_time", recoveryTime
         ));
     }
@@ -349,11 +349,13 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
         return String.format("%.2f", dropRates.moneyPenalty);
     }
 
-    private String formatHearts(double hearts) {
-        if (hearts <= 0.0D) {
+    private String formatMaxHealthDrop(SoulPointsManager.DropRates dropRates) {
+        if (dropRates == null || dropRates.maxHealthPenalty <= 0.0D) {
             return "0 hearts";
         }
-        return String.format("%.1f hearts", hearts);
+        boolean removal = dropRates.maxHealthMode == null || dropRates.maxHealthMode == SoulPointsManager.DropRates.MaxHealthPenaltyMode.REMOVE;
+        String sign = removal ? "-" : "+";
+        return String.format("%s%.1f hearts", sign, dropRates.maxHealthPenalty);
     }
     
     private void sendHelpMessage(CommandSender sender) {
