@@ -1,5 +1,8 @@
 # LamDeathPenalties Configuration
 
+# Config version - DO NOT EDIT (used for automatic updates)
+version: 0.4
+
 # Recovery settings
 recovery:
   mode: "real-time"  # Options: "real-time" or "active-time"
@@ -144,9 +147,11 @@ messages:
   
   # Check command messages
   check-usage: "§cUsage: /lmdp check <player>"
-  
-  
-  
+
+  # Action bar messages (optional - can be used with MessageManager.sendActionBar)
+  soul-points-changed-actionbar: "§6Soul Points: §f{current_points}§7/§f{max_points}"
+  recovery-ready-actionbar: "§a✦ Soul point recovered! §f{current_points}§7/§f{max_points}"
+
   # Display values
   yes: "Yes"
   no: "No"

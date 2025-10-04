@@ -10,6 +10,8 @@ import org.bukkit.inventory.ItemStack;
 
 import java.util.*;
 
+import static org.yusaki.lib.modules.MessageManager.placeholders;
+
 public class DeathListener implements Listener {
     private final LamDeathPenalties plugin;
     private final SoulPointsManager soulPointsManager;
@@ -284,13 +286,13 @@ public class DeathListener implements Listener {
         }
     }
     
-    private void sendDeathNotification(Player player, int oldSoulPoints, int currentSoulPoints, 
+    private void sendDeathNotification(Player player, int oldSoulPoints, int currentSoulPoints,
                                       ItemDropResult dropResult) {
         int maxSoulPoints = plugin.getConfig().getInt("soul-points.max", 10);
-        MessageManager messageManager = plugin.getMessageManager();
-        
+        org.yusaki.lib.modules.MessageManager messageManager = plugin.getMessageManager();
+
         // Prepare placeholders
-        Map<String, String> placeholders = MessageManager.placeholders(
+        Map<String, String> placeholdersMap = placeholders(
             "old_points", String.valueOf(oldSoulPoints),
             "current_points", String.valueOf(currentSoulPoints),
             "max_points", String.valueOf(maxSoulPoints),
@@ -301,13 +303,13 @@ public class DeathListener implements Listener {
         // Show item loss summary
         if (dropResult.totalItems > 0) {
             double dropPercentage = (double) dropResult.itemsDropped / dropResult.totalItems * 100;
-            placeholders.put("drop_percentage", String.format("%.1f", dropPercentage));
-            
+            placeholdersMap.put("drop_percentage", String.format("%.1f", dropPercentage));
+
             // Show specific items dropped (top 3 most common)
             if (!dropResult.droppedItems.isEmpty()) {
                 List<Map.Entry<org.bukkit.Material, Integer>> sortedDrops = new ArrayList<>(dropResult.droppedItems.entrySet());
                 sortedDrops.sort((a, b) -> b.getValue().compareTo(a.getValue()));
-                
+
                 StringBuilder itemList = new StringBuilder();
                 int shown = 0;
                 for (Map.Entry<org.bukkit.Material, Integer> entry : sortedDrops) {
@@ -319,30 +321,30 @@ public class DeathListener implements Listener {
                 if (sortedDrops.size() > 3) {
                     itemList.append("§7, and ").append(sortedDrops.size() - 3).append(" more types");
                 }
-                placeholders.put("item_list", itemList.toString());
+                placeholdersMap.put("item_list", itemList.toString());
             } else {
-                placeholders.put("item_list", "");
+                placeholdersMap.put("item_list", "");
             }
-            
+
             // Show recovery info
             if (currentSoulPoints < maxSoulPoints) {
                 String recoveryMode = plugin.getConfig().getString("recovery.mode", "real-time");
                 int recoveryHours = plugin.getConfig().getInt("recovery.interval-hours", 1);
-                placeholders.put("hours", String.valueOf(recoveryHours));
-                placeholders.put("mode", recoveryMode);
+                placeholdersMap.put("hours", String.valueOf(recoveryHours));
+                placeholdersMap.put("mode", recoveryMode);
             }
-            
-            messageManager.sendMessageList(player, "death-penalty", placeholders);
+
+            messageManager.sendMessageList(plugin, player, "death-penalty", placeholdersMap);
         } else {
             // Show recovery info for no-items case
             if (currentSoulPoints < maxSoulPoints) {
                 String recoveryMode = plugin.getConfig().getString("recovery.mode", "real-time");
                 int recoveryHours = plugin.getConfig().getInt("recovery.interval-hours", 1);
-                placeholders.put("hours", String.valueOf(recoveryHours));
-                placeholders.put("mode", recoveryMode);
+                placeholdersMap.put("hours", String.valueOf(recoveryHours));
+                placeholdersMap.put("mode", recoveryMode);
             }
-            
-            messageManager.sendMessageList(player, "death-penalty-no-items", placeholders);
+
+            messageManager.sendMessageList(plugin, player, "death-penalty-no-items", placeholdersMap);
         }
     }
     

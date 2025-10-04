@@ -8,6 +8,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+import static org.yusaki.lib.modules.MessageManager.placeholders;
+
 public class RecoveryScheduler {
     private final LamDeathPenalties plugin;
     private final SoulPointsManager soulPointsManager;
@@ -81,7 +83,8 @@ public class RecoveryScheduler {
                         
                         // Notify player if they gained soul points
                         if (recoveryCount > 0) {
-                            plugin.getMessageManager().sendMessageList(player, "recovery-gained", MessageManager.placeholders(
+                            org.yusaki.lib.modules.MessageManager messageManager = plugin.getMessageManager();
+                            messageManager.sendMessageList(plugin, player, "recovery-gained", placeholders(
                                 "count", String.valueOf(recoveryCount),
                                 "plural", recoveryCount > 1 ? "s" : "",
                                 "current_points", String.valueOf(soulPointsManager.getSoulPoints(playerId)),

@@ -11,29 +11,32 @@ import org.yusaki.lamDeathPenalties.api.events.SoulPointsChangeEvent;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+
+import static org.yusaki.lib.modules.MessageManager.placeholders;
 
 public class SoulPointsCommand implements CommandExecutor, TabCompleter {
     private final LamDeathPenalties plugin;
     private final SoulPointsManager soulPointsManager;
     private final RecoveryScheduler recoveryScheduler;
-    private final MessageManager messageManager;
     
     public SoulPointsCommand(LamDeathPenalties plugin, SoulPointsManager soulPointsManager, RecoveryScheduler recoveryScheduler) {
         this.plugin = plugin;
         this.soulPointsManager = soulPointsManager;
         this.recoveryScheduler = recoveryScheduler;
-        this.messageManager = plugin.getMessageManager();
     }
     
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        org.yusaki.lib.modules.MessageManager messageManager = plugin.getMessageManager();
+
         if (args.length == 0) {
             // Show current soul points
             if (!(sender instanceof Player)) {
-                messageManager.sendMessage(sender, "player-only");
+                messageManager.sendMessage(plugin, sender, "player-only");
                 return true;
             }
-            
+
             Player player = (Player) sender;
             showSoulPoints(player, player);
             return true;
@@ -62,63 +65,67 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
     }
     
     private boolean handleSetCommand(CommandSender sender, String[] args) {
+        org.yusaki.lib.modules.MessageManager messageManager = plugin.getMessageManager();
+
         if (!sender.hasPermission("lmdp.admin")) {
-            messageManager.sendMessage(sender, "no-permission");
+            messageManager.sendMessage(plugin, sender, "no-permission");
             return true;
         }
-        
+
         if (args.length < 3) {
-            messageManager.sendMessage(sender, "set-usage");
+            messageManager.sendMessage(plugin, sender, "set-usage");
             return true;
         }
-        
+
         Player target = Bukkit.getPlayer(args[1]);
         if (target == null) {
-            messageManager.sendMessage(sender, "player-not-found", MessageManager.placeholders("player", args[1]));
+            messageManager.sendMessage(plugin, sender, "player-not-found", placeholders("player", args[1]));
             return true;
         }
-        
+
         try {
             int amount = Integer.parseInt(args[2]);
             int maxPoints = plugin.getConfig().getInt("soul-points.max", 10);
-            
+
             if (amount < 0 || amount > maxPoints) {
-                messageManager.sendMessage(sender, "set-amount-range", MessageManager.placeholders("max_points", String.valueOf(maxPoints)));
+                messageManager.sendMessage(plugin, sender, "set-amount-range", placeholders("max_points", String.valueOf(maxPoints)));
                 return true;
             }
-            
+
             soulPointsManager.setSoulPointsWithReason(target.getUniqueId(), amount, SoulPointsChangeEvent.ChangeReason.COMMAND);
-            messageManager.sendMessage(sender, "set-success-sender", MessageManager.placeholders(
+            messageManager.sendMessage(plugin, sender, "set-success-sender", placeholders(
                 "player", target.getName(),
                 "amount", String.valueOf(amount),
                 "max_points", String.valueOf(maxPoints)
             ));
-            messageManager.sendMessage(target, "set-success-target", MessageManager.placeholders(
+            messageManager.sendMessage(plugin, target, "set-success-target", placeholders(
                 "amount", String.valueOf(amount),
                 "max_points", String.valueOf(maxPoints)
             ));
-            
+
         } catch (NumberFormatException e) {
-            messageManager.sendMessage(sender, "invalid-number", MessageManager.placeholders("input", args[2]));
+            messageManager.sendMessage(plugin, sender, "invalid-number", placeholders("input", args[2]));
         }
-        
+
         return true;
     }
     
     private boolean handleGiveCommand(CommandSender sender, String[] args) {
+        org.yusaki.lib.modules.MessageManager messageManager = plugin.getMessageManager();
+
         if (!sender.hasPermission("lmdp.admin")) {
-            messageManager.sendMessage(sender, "no-permission");
+            messageManager.sendMessage(plugin, sender, "no-permission");
             return true;
         }
         
         if (args.length < 3) {
-            messageManager.sendMessage(sender, "give-usage");
+            messageManager.sendMessage(plugin, sender, "give-usage");
             return true;
         }
         
         Player target = Bukkit.getPlayer(args[1]);
         if (target == null) {
-            messageManager.sendMessage(sender, "player-not-found", MessageManager.placeholders("player", args[1]));
+            messageManager.sendMessage(plugin, sender, "player-not-found", placeholders("player", args[1]));
             return true;
         }
         
@@ -128,7 +135,7 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
             int maxPoints = plugin.getConfig().getInt("soul-points.max", 10);
             
             if (amount <= 0) {
-                messageManager.sendMessage(sender, "give-amount-positive");
+                messageManager.sendMessage(plugin, sender, "give-amount-positive");
                 return true;
             }
             
@@ -136,13 +143,13 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
             int newPoints = soulPointsManager.getSoulPoints(target.getUniqueId());
             int actualGiven = newPoints - currentPoints;
             
-            messageManager.sendMessage(sender, "give-success-sender", MessageManager.placeholders(
+            messageManager.sendMessage(plugin, sender, "give-success-sender", placeholders(
                 "given", String.valueOf(actualGiven),
                 "player", target.getName(),
                 "new_points", String.valueOf(newPoints),
                 "max_points", String.valueOf(maxPoints)
             ));
-            messageManager.sendMessage(target, "give-success-target", MessageManager.placeholders(
+            messageManager.sendMessage(plugin, target, "give-success-target", placeholders(
                 "given", String.valueOf(actualGiven),
                 "plural", actualGiven != 1 ? "s" : "",
                 "new_points", String.valueOf(newPoints),
@@ -150,26 +157,28 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
             ));
             
         } catch (NumberFormatException e) {
-            messageManager.sendMessage(sender, "invalid-number", MessageManager.placeholders("input", args[2]));
+            messageManager.sendMessage(plugin, sender, "invalid-number", placeholders("input", args[2]));
         }
         
         return true;
     }
     
     private boolean handleTakeCommand(CommandSender sender, String[] args) {
+        org.yusaki.lib.modules.MessageManager messageManager = plugin.getMessageManager();
+
         if (!sender.hasPermission("lmdp.admin")) {
-            messageManager.sendMessage(sender, "no-permission");
+            messageManager.sendMessage(plugin, sender, "no-permission");
             return true;
         }
         
         if (args.length < 3) {
-            messageManager.sendMessage(sender, "take-usage");
+            messageManager.sendMessage(plugin, sender, "take-usage");
             return true;
         }
         
         Player target = Bukkit.getPlayer(args[1]);
         if (target == null) {
-            messageManager.sendMessage(sender, "player-not-found", MessageManager.placeholders("player", args[1]));
+            messageManager.sendMessage(plugin, sender, "player-not-found", placeholders("player", args[1]));
             return true;
         }
         
@@ -179,7 +188,7 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
             int maxPoints = plugin.getConfig().getInt("soul-points.max", 10);
             
             if (amount <= 0) {
-                messageManager.sendMessage(sender, "take-amount-positive");
+                messageManager.sendMessage(plugin, sender, "take-amount-positive");
                 return true;
             }
             
@@ -187,13 +196,13 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
             int newPoints = soulPointsManager.getSoulPoints(target.getUniqueId());
             int actualTaken = currentPoints - newPoints;
             
-            messageManager.sendMessage(sender, "take-success-sender", MessageManager.placeholders(
+            messageManager.sendMessage(plugin, sender, "take-success-sender", placeholders(
                 "taken", String.valueOf(actualTaken),
                 "player", target.getName(),
                 "new_points", String.valueOf(newPoints),
                 "max_points", String.valueOf(maxPoints)
             ));
-            messageManager.sendMessage(target, "take-success-target", MessageManager.placeholders(
+            messageManager.sendMessage(plugin, target, "take-success-target", placeholders(
                 "taken", String.valueOf(actualTaken),
                 "plural", actualTaken != 1 ? "s" : "",
                 "new_points", String.valueOf(newPoints),
@@ -201,16 +210,18 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
             ));
             
         } catch (NumberFormatException e) {
-            messageManager.sendMessage(sender, "invalid-number", MessageManager.placeholders("input", args[2]));
+            messageManager.sendMessage(plugin, sender, "invalid-number", placeholders("input", args[2]));
         }
         
         return true;
     }
     
     private boolean handleCheckCommand(CommandSender sender, String[] args) {
+        org.yusaki.lib.modules.MessageManager messageManager = plugin.getMessageManager();
+
         if (args.length < 2) {
             if (!(sender instanceof Player)) {
-                messageManager.sendMessage(sender, "check-usage");
+                messageManager.sendMessage(plugin, sender, "check-usage");
                 return true;
             }
             Player player = (Player) sender;
@@ -219,13 +230,13 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
         }
         
         if (!sender.hasPermission("lmdp.check.others")) {
-            messageManager.sendMessage(sender, "no-permission-check-others");
+            messageManager.sendMessage(plugin, sender, "no-permission-check-others");
             return true;
         }
         
         Player target = Bukkit.getPlayer(args[1]);
         if (target == null) {
-            messageManager.sendMessage(sender, "player-not-found", MessageManager.placeholders("player", args[1]));
+            messageManager.sendMessage(plugin, sender, "player-not-found", placeholders("player", args[1]));
             return true;
         }
         
@@ -234,52 +245,56 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
     }
     
     private boolean handleReloadCommand(CommandSender sender) {
+        org.yusaki.lib.modules.MessageManager messageManager = plugin.getMessageManager();
+
         if (!sender.hasPermission("lmdp.admin")) {
-            messageManager.sendMessage(sender, "no-permission");
+            messageManager.sendMessage(plugin, sender, "no-permission");
             return true;
         }
-        
+
         plugin.reloadPlugin();
-        messageManager.sendMessage(sender, "config-reloaded");
+        messageManager.sendMessage(plugin, sender, "config-reloaded");
         return true;
     }
     
     private void showSoulPoints(CommandSender sender, Player target) {
+        org.yusaki.lib.modules.MessageManager messageManager = plugin.getMessageManager();
         int currentPoints = soulPointsManager.getSoulPoints(target.getUniqueId());
         int maxPoints = plugin.getConfig().getInt("soul-points.max", 10);
-        
+
         // Get drop rates for current soul points
         SoulPointsManager.DropRates dropRates = soulPointsManager.getDropRates(currentPoints);
-        
+
         // Get time until next recovery
         long timeUntilRecovery = recoveryScheduler.getTimeUntilNextRecovery(target.getUniqueId());
         String recoveryTime = formatTime(timeUntilRecovery);
-        
+
         // Create progress bar
         String progressBar = createProgressBar(currentPoints, maxPoints);
         
-        messageManager.sendMessageList(sender, "soul-points-display", MessageManager.placeholders(
+        messageManager.sendMessageList(plugin, sender, "soul-points-display", placeholders(
             "player", target.getName(),
             "progress_bar", progressBar,
             "current_points", String.valueOf(currentPoints),
             "max_points", String.valueOf(maxPoints),
             "item_drop", String.valueOf(dropRates.itemDrop),
-            "hotbar_drop", dropRates.hotbarDrop ? messageManager.getMessage("yes") : messageManager.getMessage("no"),
-            "armor_drop", dropRates.armorDrop ? messageManager.getMessage("yes") : messageManager.getMessage("no"),
+            "hotbar_drop", dropRates.hotbarDrop ? messageManager.getMessage(plugin, "yes") : messageManager.getMessage(plugin, "no"),
+            "armor_drop", dropRates.armorDrop ? messageManager.getMessage(plugin, "yes") : messageManager.getMessage(plugin, "no"),
             "recovery_time", recoveryTime
         ));
     }
     
     private String createProgressBar(int current, int max) {
+        org.yusaki.lib.modules.MessageManager messageManager = plugin.getMessageManager();
         int barLength = 20;
         int filledBars = (int) ((double) current / max * barLength);
-        
+
         StringBuilder bar = new StringBuilder();
         for (int i = 0; i < barLength; i++) {
             if (i < filledBars) {
-                bar.append(messageManager.getMessage("progress-bar-filled"));
+                bar.append(messageManager.getMessage(plugin, "progress-bar-filled"));
             } else {
-                bar.append(messageManager.getMessage("progress-bar-empty"));
+                bar.append(messageManager.getMessage(plugin, "progress-bar-empty"));
             }
         }
         return bar.toString();
@@ -307,11 +322,12 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
     }
     
     private void sendHelpMessage(CommandSender sender) {
+        org.yusaki.lib.modules.MessageManager messageManager = plugin.getMessageManager();
         if (sender.hasPermission("lmdp.admin")) {
-            messageManager.sendMessageList(sender, "help-menu");
+            messageManager.sendMessageList(plugin, sender, "help-menu");
         } else {
             // Show basic help without admin commands
-            List<String> helpLines = messageManager.getMessageList("help-menu");
+            List<String> helpLines = messageManager.getMessageList(plugin, "help-menu");
             for (String line : helpLines) {
                 // Skip admin-only lines
                 if (line.contains("set") || line.contains("give") || line.contains("take") || line.contains("reload")) {

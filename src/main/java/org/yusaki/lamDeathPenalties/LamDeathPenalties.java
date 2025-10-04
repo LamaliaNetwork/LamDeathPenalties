@@ -9,25 +9,37 @@ import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.yusaki.lamDeathPenalties.api.LamDeathPenaltiesAPI;
 import org.yusaki.lamDeathPenalties.api.LamDeathPenaltiesAPIImpl;
+import org.yusaki.lib.YskLib;
 
 public final class LamDeathPenalties extends JavaPlugin implements Listener {
-    
+
+    private YskLib yskLib;
     private FoliaLib foliaLib;
-    private MessageManager messageManager;
     private SoulPointsManager soulPointsManager;
     private RecoveryScheduler recoveryScheduler;
     private DeathListener deathListener;
     private SoulPointsCommand soulPointsCommand;
     @Override
     public void onEnable() {
+        // Get YskLib instance
+        yskLib = (YskLib) getServer().getPluginManager().getPlugin("YskLib");
+        if (yskLib == null) {
+            getLogger().severe("YskLib not found! This plugin requires YskLib to function.");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+
         // Initialize FoliaLib
         foliaLib = new FoliaLib(this);
-        
-        // Save default config
+
+        // Save default config and update with YskLib
         saveDefaultConfig();
-        
+        yskLib.updateConfig(this);
+
+        // Load messages via YskLib
+        yskLib.loadMessages(this);
+
         // Initialize managers
-        messageManager = new MessageManager(this);
         soulPointsManager = new SoulPointsManager(this);
         recoveryScheduler = new RecoveryScheduler(this, soulPointsManager, foliaLib);
         deathListener = new DeathListener(this, soulPointsManager, foliaLib);
@@ -93,26 +105,30 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
     public RecoveryScheduler getRecoveryScheduler() {
         return recoveryScheduler;
     }
-    
-    public MessageManager getMessageManager() {
-        return messageManager;
+
+    public org.yusaki.lib.modules.MessageManager getMessageManager() {
+        return yskLib != null ? yskLib.getMessageManager() : null;
     }
     
-    
+
     public void reloadPlugin() {
-        // Reload configuration
-        reloadConfig();
-        
         // Save current data before reloading
         if (soulPointsManager != null) {
             soulPointsManager.savePlayerData();
         }
-        
-        // Reload messages
-        if (messageManager != null) {
-            messageManager.loadMessages();
+
+        // Reload configuration using YskLib updater
+        if (yskLib != null) {
+            yskLib.updateConfig(this);
+            yskLib.loadMessages(this);
+        } else {
+            reloadConfig();
         }
-        
+
         getLogger().info("Plugin configuration reloaded!");
+    }
+
+    public YskLib getYskLib() {
+        return yskLib;
     }
 }
