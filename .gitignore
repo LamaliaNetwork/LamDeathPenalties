@@ -111,5 +111,5 @@ buildNumber.properties
 
 # Common working directory
 run/
-
+docs/
 CLAUDE.md
