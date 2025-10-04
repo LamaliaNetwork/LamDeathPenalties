@@ -115,7 +115,7 @@ public void onSoulPointsChange(SoulPointsChangeEvent event) {
     // Cancel death penalties for VIP players
     if (reason == ChangeReason.DEATH && player.hasPermission("vip.nodeathpenalty")) {
         event.setCancelled(true);
-        player.sendMessage("§aVIP protection activated!");
+        player.sendMessage("&aVIP protection activated!");
         return;
     }
     
@@ -144,7 +144,7 @@ public void onSoulPointsChanged(SoulPointsChangedEvent event) {
     
     // Warning for low soul points
     if (event.getNewSoulPoints() <= 2) {
-        player.sendMessage("§c⚠ Warning: Critical soul point level!");
+        player.sendMessage("&c⚠ Warning: Critical soul point level!");
     }
 }
 ```
@@ -174,14 +174,14 @@ public void giveQuestReward(Player player) {
     if (soulPoints >= 8) {
         // Premium rewards for high soul points
         giveItem(player, "DIAMOND", 5);
-        player.sendMessage("§bBonus reward for high soul points!");
+        player.sendMessage("&bBonus reward for high soul points!");
     } else if (soulPoints >= 5) {
         // Standard rewards
         giveItem(player, "IRON_INGOT", 10);
     } else {
         // Reduced rewards for low soul points
         giveItem(player, "COBBLESTONE", 32);
-        player.sendMessage("§7Reward reduced due to low soul points...");
+        player.sendMessage("&7Reward reduced due to low soul points...");
     }
 }
 ```
@@ -196,13 +196,13 @@ public void onSoulPointsChange(SoulPointsChangeEvent event) {
     // Protect players in safe zones
     if (isInSafeZone(player) && event.getReason() == ChangeReason.DEATH) {
         event.setCancelled(true);
-        player.sendMessage("§aSafe zone protection prevented soul point loss!");
+        player.sendMessage("&aSafe zone protection prevented soul point loss!");
     }
     
     // Grace period for new players
     if (getPlaytime(player) < 3600000 && event.getReason() == ChangeReason.DEATH) { // 1 hour
         event.setCancelled(true);
-        player.sendMessage("§eNewbie protection active!");
+        player.sendMessage("&eNewbie protection active!");
     }
 }
 ```
@@ -215,15 +215,15 @@ public void showPlayerStats(Player viewer, Player target) {
     int maxPoints = soulPointsAPI.getMaxSoulPoints();
     DropRates rates = soulPointsAPI.getPlayerDropRates(target);
     
-    viewer.sendMessage("§b" + target.getName() + "'s Soul Points: " + points + "/" + maxPoints);
-    viewer.sendMessage("§7Drop Rate: " + rates.itemDrop + "% items");
-    viewer.sendMessage("§7Hotbar Protected: " + (!rates.hotbarDrop ? "§aYes" : "§cNo"));
-    viewer.sendMessage("§7Armor Protected: " + (!rates.armorDrop ? "§aYes" : "§cNo"));
+    viewer.sendMessage("&b" + target.getName() + "'s Soul Points: " + points + "/" + maxPoints);
+    viewer.sendMessage("&7Drop Rate: " + rates.itemDrop + "% items");
+    viewer.sendMessage("&7Hotbar Protected: " + (!rates.hotbarDrop ? "&aYes" : "&cNo"));
+    viewer.sendMessage("&7Armor Protected: " + (!rates.armorDrop ? "&aYes" : "&cNo"));
     
     long recovery = soulPointsAPI.getTimeUntilNextRecovery(target);
     if (recovery > 0) {
         long minutes = recovery / (1000 * 60);
-        viewer.sendMessage("§7Next Recovery: " + minutes + " minutes");
+        viewer.sendMessage("&7Next Recovery: " + minutes + " minutes");
     }
 }
 ```
@@ -234,7 +234,7 @@ public void showPlayerStats(Player viewer, Player target) {
 public void buySoulPoint(Player player) {
     // Check if player can afford it
     if (!economy.has(player, 1000)) {
-        player.sendMessage("§cYou need $1000 to buy a soul point!");
+        player.sendMessage("&cYou need $1000 to buy a soul point!");
         return;
     }
     
@@ -242,7 +242,7 @@ public void buySoulPoint(Player player) {
     int current = soulPointsAPI.getSoulPoints(player);
     int max = soulPointsAPI.getMaxSoulPoints();
     if (current >= max) {
-        player.sendMessage("§cYou already have maximum soul points!");
+        player.sendMessage("&cYou already have maximum soul points!");
         return;
     }
     
@@ -251,10 +251,10 @@ public void buySoulPoint(Player player) {
     boolean success = soulPointsAPI.addSoulPoints(player, 1);
     
     if (success) {
-        player.sendMessage("§aPurchased 1 soul point for $1000!");
+        player.sendMessage("&aPurchased 1 soul point for $1000!");
     } else {
         economy.depositPlayer(player, 1000); // Refund
-        player.sendMessage("§cFailed to purchase soul point!");
+        player.sendMessage("&cFailed to purchase soul point!");
     }
 }
 ```

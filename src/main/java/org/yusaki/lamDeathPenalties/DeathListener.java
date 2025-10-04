@@ -324,12 +324,12 @@ public class DeathListener implements Listener {
                 int shown = 0;
                 for (Map.Entry<org.bukkit.Material, Integer> entry : sortedDrops) {
                     if (shown >= 3) break;
-                    if (shown > 0) itemList.append("§7, ");
-                    itemList.append("§c").append(entry.getValue()).append("x ").append(formatMaterialName(entry.getKey()));
+                    if (shown > 0) itemList.append("&7, ");
+                    itemList.append("&c").append(entry.getValue()).append("x ").append(formatMaterialName(entry.getKey()));
                     shown++;
                 }
                 if (sortedDrops.size() > 3) {
-                    itemList.append("§7, and ").append(sortedDrops.size() - 3).append(" more types");
+                    itemList.append("&7, and ").append(sortedDrops.size() - 3).append(" more types");
                 }
                 placeholdersMap.put("item_list", itemList.toString());
             } else {
