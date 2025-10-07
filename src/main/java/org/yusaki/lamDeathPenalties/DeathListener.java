@@ -413,7 +413,7 @@ public class DeathListener implements Listener {
     }
 
     private MoneyPenaltyResult applyMoneyPenalty(Player player, SoulPointsManager.DropRates dropRates) {
-        if (player == null || dropRates == null || dropRates.moneyPenalty <= 0.0D && dropRates.moneyEmptyCommands.isEmpty()) {
+        if (player == null || dropRates == null || dropRates.moneyPenalty <= 0.0D) {
             return MoneyPenaltyResult.empty();
         }
 
