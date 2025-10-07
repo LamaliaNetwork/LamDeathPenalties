@@ -140,10 +140,19 @@ public class SoulPointsManager {
             return;
         }
         
-        setSoulPoints(playerId, changeEvent.getNewSoulPoints());
-        
+        int newPoints = changeEvent.getNewSoulPoints();
+        setSoulPoints(playerId, newPoints);
+
+        // Execute commands for the new soul points level (only when decreasing)
+        if (newPoints < oldPoints) {
+            DropRates dropRates = getDropRates(newPoints);
+            if (dropRates != null && !dropRates.commands.isEmpty()) {
+                executeCommands(dropRates.commands, player);
+            }
+        }
+
         SoulPointsChangedEvent changedEvent = new SoulPointsChangedEvent(
-            player, oldPoints, changeEvent.getNewSoulPoints(), reason
+            player, oldPoints, newPoints, reason
         );
         Bukkit.getPluginManager().callEvent(changedEvent);
     }
@@ -154,23 +163,63 @@ public class SoulPointsManager {
         }
 
         ConfigurationSection dropRatesRoot = plugin.getConfig().getConfigurationSection("soul-points.drop-rates");
+        if (dropRatesRoot == null) {
+            // Legacy fallback for older configs that used top-level drop-rates
+            dropRatesRoot = plugin.getConfig().getConfigurationSection("drop-rates");
+        }
+
+        if (dropRatesRoot == null) {
+            return getDefaultDropRates();
+        }
+
+        // Get defaults as ultimate fallback
         ItemPenaltyConfig defaultItems = getDefaultItemPenalty();
         MoneyPenaltyConfig defaultMoney = getDefaultMoneyPenalty();
         MaxHealthPenaltyConfig defaultMaxHealth = getDefaultMaxHealthPenalty();
-        CommandPenaltyConfig defaultCommands = getDefaultCommandPenalty();
-        ConfigurationSection dropConfig = findDropConfig(dropRatesRoot, soulPoints);
 
-        if (dropConfig == null) {
-            // Legacy fallback for older configs that used top-level drop-rates
-            ConfigurationSection legacyDropRates = plugin.getConfig().getConfigurationSection("drop-rates");
-            dropConfig = findDropConfig(legacyDropRates, soulPoints);
+        // Search through levels from current to max, building fallbacks for each penalty type
+        int maxPoints = plugin.getConfig().getInt("soul-points.max", 10);
+        int target = Math.max(0, Math.min(soulPoints, maxPoints));
+
+        ItemPenaltyConfig resolvedItems = null;
+        MoneyPenaltyConfig resolvedMoney = null;
+        MaxHealthPenaltyConfig resolvedMaxHealth = null;
+        List<String> resolvedCommands = null;
+
+        for (int level = target; level <= maxPoints; level++) {
+            ConfigurationSection section = dropRatesRoot.getConfigurationSection(String.valueOf(level));
+            if (section != null) {
+                if (resolvedItems == null) {
+                    resolvedItems = tryResolveItemPenalty(section);
+                }
+                if (resolvedMoney == null) {
+                    resolvedMoney = tryResolveMoneyPenalty(section);
+                }
+                if (resolvedMaxHealth == null) {
+                    resolvedMaxHealth = tryResolveMaxHealthPenalty(section);
+                }
+                if (resolvedCommands == null && section.isList("commands")) {
+                    resolvedCommands = section.getStringList("commands");
+                }
+            }
         }
 
-        if (dropConfig != null) {
-            return buildDropRates(dropConfig, defaultItems, defaultMoney, defaultMaxHealth, defaultCommands);
-        }
+        // Use defaults for any unresolved penalties
+        if (resolvedItems == null) resolvedItems = defaultItems;
+        if (resolvedMoney == null) resolvedMoney = defaultMoney;
+        if (resolvedMaxHealth == null) resolvedMaxHealth = defaultMaxHealth;
+        if (resolvedCommands == null) resolvedCommands = Collections.emptyList();
 
-        return getDefaultDropRates();
+        return new DropRates(
+            resolvedItems.dropPercent,
+            resolvedItems.hotbarDrop,
+            resolvedItems.armorDrop,
+            resolvedMoney.amount,
+            resolvedMoney.mode,
+            resolvedMaxHealth.amount,
+            resolvedMaxHealth.mode,
+            resolvedCommands
+        );
     }
 
     private ConfigurationSection findDropConfig(ConfigurationSection root, int soulPoints) {
@@ -191,30 +240,10 @@ public class SoulPointsManager {
         return null;
     }
 
-    private DropRates buildDropRates(ConfigurationSection section, ItemPenaltyConfig defaultItems, MoneyPenaltyConfig defaultMoney, MaxHealthPenaltyConfig defaultMaxHealth, CommandPenaltyConfig defaultCommands) {
-        ItemPenaltyConfig itemPenalty = resolveItemPenalty(section, defaultItems);
-        MoneyPenaltyConfig moneyPenalty = resolveMoneyPenalty(section, defaultMoney);
-        MaxHealthPenaltyConfig maxHealthPenalty = resolveMaxHealthPenalty(section, defaultMaxHealth);
-        CommandPenaltyConfig commandPenaltyConfig = resolveCommandPenalty(section, defaultCommands);
-
-        return new DropRates(
-            itemPenalty.dropPercent,
-            itemPenalty.hotbarDrop,
-            itemPenalty.armorDrop,
-            moneyPenalty.amount,
-            moneyPenalty.mode,
-            maxHealthPenalty.amount,
-            maxHealthPenalty.mode,
-            commandPenaltyConfig.moneyEmptyCommands,
-            commandPenaltyConfig.maxHealthEmptyCommands
-        );
-    }
-
     private DropRates getDefaultDropRates() {
         ItemPenaltyConfig itemPenalty = getDefaultItemPenalty();
         MoneyPenaltyConfig moneyPenalty = getDefaultMoneyPenalty();
         MaxHealthPenaltyConfig maxHealthPenalty = getDefaultMaxHealthPenalty();
-        CommandPenaltyConfig commandPenaltyConfig = getDefaultCommandPenalty();
 
         return new DropRates(
             itemPenalty.dropPercent,
@@ -224,9 +253,82 @@ public class SoulPointsManager {
             moneyPenalty.mode,
             maxHealthPenalty.amount,
             maxHealthPenalty.mode,
-            commandPenaltyConfig.moneyEmptyCommands,
-            commandPenaltyConfig.maxHealthEmptyCommands
+            Collections.emptyList()
         );
+    }
+
+    // Try to resolve penalty without fallbacks - returns null if not defined at this level
+    private ItemPenaltyConfig tryResolveItemPenalty(ConfigurationSection section) {
+        if (section == null) {
+            return null;
+        }
+
+        if (section.isConfigurationSection("items")) {
+            ConfigurationSection itemsSection = section.getConfigurationSection("items");
+            if (itemsSection != null) {
+                int dropPercent = itemsSection.getInt("drop-percent", -1);
+                boolean hotbarDrop = itemsSection.getBoolean("hotbar", false);
+                boolean armorDrop = itemsSection.getBoolean("armor", false);
+                if (dropPercent >= 0) {
+                    return new ItemPenaltyConfig(dropPercent, hotbarDrop, armorDrop);
+                }
+            }
+        }
+
+        if (section.isSet("item-drop")) {
+            int dropPercent = section.getInt("item-drop", -1);
+            boolean hotbarDrop = section.getBoolean("hotbar-drop", false);
+            boolean armorDrop = section.getBoolean("armor-drop", false);
+            if (dropPercent >= 0) {
+                return new ItemPenaltyConfig(dropPercent, hotbarDrop, armorDrop);
+            }
+        }
+
+        return null;
+    }
+
+    private MoneyPenaltyConfig tryResolveMoneyPenalty(ConfigurationSection section) {
+        if (section == null) {
+            return null;
+        }
+
+        if (section.isConfigurationSection("money")) {
+            ConfigurationSection moneySection = section.getConfigurationSection("money");
+            if (moneySection != null) {
+                DropRates.MoneyPenaltyMode mode = DropRates.MoneyPenaltyMode.fromString(
+                    moneySection.getString("mode"),
+                    DropRates.MoneyPenaltyMode.FLAT
+                );
+                double amount = moneySection.getDouble("amount", 0.0D);
+                return new MoneyPenaltyConfig(amount, mode);
+            }
+        } else if (section.isSet("money")) {
+            double amount = section.getDouble("money");
+            return new MoneyPenaltyConfig(amount, DropRates.MoneyPenaltyMode.FLAT);
+        }
+
+        return null;
+    }
+
+    private MaxHealthPenaltyConfig tryResolveMaxHealthPenalty(ConfigurationSection section) {
+        if (section == null) {
+            return null;
+        }
+
+        if (section.isConfigurationSection("max-health")) {
+            ConfigurationSection maxSection = section.getConfigurationSection("max-health");
+            if (maxSection != null) {
+                double amount = maxSection.getDouble("amount", 0.0D);
+                String modeValue = maxSection.getString("mode", "remove");
+                DropRates.MaxHealthPenaltyMode mode = DropRates.MaxHealthPenaltyMode.fromString(modeValue, DropRates.MaxHealthPenaltyMode.REMOVE);
+                return new MaxHealthPenaltyConfig(amount, mode);
+            }
+        } else if (section.isSet("max-health")) {
+            double amount = section.getDouble("max-health", 0.0D);
+            return new MaxHealthPenaltyConfig(amount, DropRates.MaxHealthPenaltyMode.REMOVE);
+        }
+
+        return null;
     }
 
     private ItemPenaltyConfig getDefaultItemPenalty() {
@@ -354,40 +456,6 @@ public class SoulPointsManager {
         return result;
     }
 
-    private CommandPenaltyConfig getDefaultCommandPenalty() {
-        ConfigurationSection commands = plugin.getConfig().getConfigurationSection("default-penalty.commands");
-        return parseCommandPenaltySection(commands, new CommandPenaltyConfig());
-    }
-
-    private CommandPenaltyConfig resolveCommandPenalty(ConfigurationSection section, CommandPenaltyConfig fallback) {
-        if (section == null) {
-            return fallback;
-        }
-
-        if (section.isConfigurationSection("commands")) {
-            ConfigurationSection commands = section.getConfigurationSection("commands");
-            if (commands != null) {
-                return parseCommandPenaltySection(commands, fallback);
-            }
-        }
-
-        return fallback;
-    }
-
-    private CommandPenaltyConfig parseCommandPenaltySection(ConfigurationSection commandsSection, CommandPenaltyConfig fallback) {
-        if (commandsSection == null) {
-            return fallback != null ? fallback : new CommandPenaltyConfig();
-        }
-
-        List<String> moneyCommands = commandsSection.getStringList("on-money-empty");
-        List<String> healthCommands = commandsSection.getStringList("on-max-health-empty");
-
-        List<String> resolvedMoney = !moneyCommands.isEmpty() ? moneyCommands : (fallback != null ? fallback.moneyEmptyCommands : Collections.emptyList());
-        List<String> resolvedHealth = !healthCommands.isEmpty() ? healthCommands : (fallback != null ? fallback.maxHealthEmptyCommands : Collections.emptyList());
-
-        return new CommandPenaltyConfig(resolvedMoney, resolvedHealth);
-    }
-    
     public void updatePlayTime(UUID playerId, long sessionTime) {
         if (!plugin.isSoulPointsEnabled()) {
             return;
@@ -595,18 +663,17 @@ public class SoulPointsManager {
     public double getMinimumMaxHealthPoints() {
         return MIN_MAX_HEALTH_POINTS;
     }
-    
-    public static class CommandPenaltyConfig {
-        final List<String> moneyEmptyCommands;
-        final List<String> maxHealthEmptyCommands;
 
-        CommandPenaltyConfig() {
-            this(Collections.emptyList(), Collections.emptyList());
+    private void executeCommands(List<String> commands, Player player) {
+        if (commands == null || commands.isEmpty()) {
+            return;
         }
-
-        CommandPenaltyConfig(List<String> moneyEmptyCommands, List<String> maxHealthEmptyCommands) {
-            this.moneyEmptyCommands = moneyEmptyCommands != null ? moneyEmptyCommands : Collections.emptyList();
-            this.maxHealthEmptyCommands = maxHealthEmptyCommands != null ? maxHealthEmptyCommands : Collections.emptyList();
+        for (String command : commands) {
+            if (command == null || command.trim().isEmpty()) {
+                continue;
+            }
+            String parsed = command.replace("%player%", player.getName());
+            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), parsed);
         }
     }
 
@@ -672,12 +739,10 @@ public class SoulPointsManager {
         public final MoneyPenaltyMode moneyMode;
         public final double maxHealthPenalty;
         public final MaxHealthPenaltyMode maxHealthMode;
-        public final List<String> moneyEmptyCommands;
-        public final List<String> maxHealthEmptyCommands;
-        
+        public final List<String> commands;
+
         public DropRates(int itemDrop, boolean hotbarDrop, boolean armorDrop, double moneyPenalty, MoneyPenaltyMode moneyMode,
-                         double maxHealthPenalty, MaxHealthPenaltyMode maxHealthMode,
-                         List<String> moneyEmptyCommands, List<String> maxHealthEmptyCommands) {
+                         double maxHealthPenalty, MaxHealthPenaltyMode maxHealthMode, List<String> commands) {
             this.itemDrop = itemDrop;
             this.hotbarDrop = hotbarDrop;
             this.armorDrop = armorDrop;
@@ -685,8 +750,7 @@ public class SoulPointsManager {
             this.moneyMode = moneyMode;
             this.maxHealthPenalty = maxHealthPenalty;
             this.maxHealthMode = maxHealthMode != null ? maxHealthMode : MaxHealthPenaltyMode.REMOVE;
-            this.moneyEmptyCommands = moneyEmptyCommands != null ? moneyEmptyCommands : Collections.emptyList();
-            this.maxHealthEmptyCommands = maxHealthEmptyCommands != null ? maxHealthEmptyCommands : Collections.emptyList();
+            this.commands = commands != null ? commands : Collections.emptyList();
         }
 
         public enum MoneyPenaltyMode {

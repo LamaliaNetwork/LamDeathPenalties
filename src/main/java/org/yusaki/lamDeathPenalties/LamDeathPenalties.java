@@ -160,6 +160,11 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
         loadSettings();
         setupEconomy();
 
+        // Refresh max health penalties for online players
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            soulPointsManager.refreshPlayerMaxHealth(player);
+        }
+
         yskLib.logInfo(this, "Plugin configuration reloaded!");
     }
 

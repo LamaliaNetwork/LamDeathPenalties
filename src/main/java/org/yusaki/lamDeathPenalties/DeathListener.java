@@ -11,6 +11,8 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.*;
@@ -32,6 +34,34 @@ public class DeathListener implements Listener {
         this.random = new Random();
     }
     
+    // Workaround for Folia - PlayerRespawnEvent doesn't fire on Folia
+    // See: https://github.com/PaperMC/Folia/issues/105
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onInventoryClose(InventoryCloseEvent event) {
+        if (!(event.getPlayer() instanceof Player player)) {
+            return;
+        }
+
+        if (!plugin.isSoulPointsEnabled()) {
+            return;
+        }
+
+        // Detect respawn: player inventory closes, player is alive and online with health > 0
+        if (event.getInventory().getType() == InventoryType.CRAFTING
+            && player.isOnline()
+            && !player.isDead()
+            && player.getHealth() > 0) {
+
+            // Schedule task to reapply max health penalty after respawn
+            foliaLib.getImpl().runAtEntityLater(player, task -> {
+                if (player.isOnline()) {
+                    soulPointsManager.refreshPlayerMaxHealth(player);
+                    plugin.getYskLib().logDebug(plugin, "Reapplied max health penalty after respawn for " + player.getName());
+                }
+            }, 1L); // 1 tick delay
+        }
+    }
+
     @EventHandler(priority = EventPriority.HIGH)
     public void onPlayerDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
@@ -83,13 +113,6 @@ public class DeathListener implements Listener {
         SoulPointsManager.MaxHealthPenaltyResult maxHealthResult = soulPointsManager.applyMaxHealthPenalty(player, dropRates);
         MoneyPenaltyResult moneyResult = applyMoneyPenalty(player, dropRates);
 
-        if (moneyResult.depleted) {
-            triggerCommands(dropRates.moneyEmptyCommands, player);
-        }
-
-        if (maxHealthResult.deltaHearts > 0.0D && isMaxHealthCritical(player)) {
-            triggerCommands(dropRates.maxHealthEmptyCommands, player);
-        }
         plugin.getYskLib().logDebug(plugin, "Max health change applied: " + formatHearts(maxHealthResult.deltaHearts) + " for " + player.getName());
         if (moneyResult.amountLost > 0.0D) {
             plugin.getYskLib().logDebug(plugin, "Money penalty applied: " + moneyResult.amountLost + " for " + player.getName());
@@ -432,30 +455,6 @@ public class DeathListener implements Listener {
         boolean depleted = remaining <= BALANCE_EPSILON || (amountToWithdraw <= 0.0D && initialBalance <= BALANCE_EPSILON);
 
         return new MoneyPenaltyResult(withdrawn, remaining, depleted);
-    }
-
-    private boolean isMaxHealthCritical(Player player) {
-        AttributeInstance attributeInstance = player.getAttribute(Attribute.GENERIC_MAX_HEALTH);
-        if (attributeInstance == null) {
-            return false;
-        }
-        double minAllowed = soulPointsManager.getMinimumMaxHealthPoints();
-        return attributeInstance.getValue() <= minAllowed + 0.0001D;
-    }
-
-    private void triggerCommands(List<String> commands, Player player) {
-        if (commands == null || commands.isEmpty()) {
-            return;
-        }
-        foliaLib.getImpl().runNextTick(task -> {
-            for (String command : commands) {
-                if (command == null || command.trim().isEmpty()) {
-                    continue;
-                }
-                String parsed = command.replace("%player%", player.getName());
-                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), parsed);
-            }
-        });
     }
 
     private String formatCurrency(double amount) {

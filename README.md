@@ -1,279 +1,194 @@
-# LamDeathPenalties API Documentation
+# LamDeathPenalties
 
-This document describes the public API for the LamDeathPenalties plugin, allowing other plugins to integrate with the soul points system.
+LamDeathPenalties adds a soul points system with progressive death penalties for Paper/Folia 1.20+. Players lose soul points on death, facing harsher consequences as their soul weakens—from item drops to max health reduction.
 
-## Getting Started
+## Key Features
 
-### Adding the API to Your Plugin
+* **Soul points system**: Each player has a soul point pool that depletes on death and recovers over time with configurable intervals.
+* **Progressive penalties**: Penalties scale with soul points—low points mean more item drops, vulnerable hotbar/armor, money loss, and reduced max health.
+* **Flexible item drops**: Configure drop percentages per soul points level; protect hotbar and armor at higher levels, expose everything at zero.
+* **Max health penalties**: Remove hearts (REMOVE mode) or grant bonus hearts (ADD mode) based on soul points, with fallback inheritance between levels.
+* **Money integration**: Vault-based penalties with flat amounts or percentages; optional commands when funds are depleted.
+* **Level-based commands**: Trigger console commands (titles, sounds, kicks, etc.) when players reach specific soul points thresholds.
+* **Recovery modes**: Choose between real-time (wall-clock) or active-time (playtime-based) soul points recovery with configurable intervals.
+* **Fallback inheritance**: Penalties cascade upward through soul points levels—unset values inherit from the next higher tier automatically.
+* **Rich notifications**: Customizable death messages showing items lost, money penalties, max health changes, and recovery info.
+* **PlaceholderAPI support**: Expose current points, penalties, and recovery times to other plugins via placeholders.
+* **Public API**: Events and methods for developers to integrate soul points mechanics into custom plugins.
+* **Folia ready**: Uses FoliaLib scheduler for smooth regional threading on Folia servers.
+* **Hot reload**: `/lmdp reload` reloads config, messages, and refreshes penalties for online players instantly.
 
-1. Add LamDeathPenalties as a dependency in your `plugin.yml`:
+## How It Works
+
+### Soul Points Lifecycle
+
+1. **Starting state**: Players begin with configurable starting soul points (default: 10/10).
+2. **Death penalty**: Lose 1 soul point on death; penalties for the *new* level apply immediately.
+3. **Progressive scaling**: Each soul points tier has item drop %, hotbar/armor vulnerability, money/health penalties, and trigger commands.
+4. **Recovery**: Points regenerate over time (real-time or active-time mode) until reaching the max.
+5. **Commands on threshold**: When dropping to specific levels (9, 5, 0), execute warning titles, sounds, or even kicks.
+
+### Penalty Inheritance
+
+If a soul points level doesn't define a penalty, it inherits from the next higher level:
+
 ```yaml
-depend: [LamDeathPenalties]
-# or for optional dependency:
-softdepend: [LamDeathPenalties]
+soul-points:
+  drop-rates:
+    9:
+      max-health:
+        mode: "remove"
+        amount: 5.0  # Level 9 loses 5 hearts
+    5:
+      max-health:
+        mode: "remove"
+        amount: 2.0  # Level 5 loses 2 hearts
+    3:
+      # No max-health defined → inherits from level 5 (2.0 hearts)
+    0:
+      # No max-health defined → inherits from level 3 → level 5 (2.0 hearts)
 ```
 
-2. Get the API instance in your plugin:
-```java
-import org.yusaki.lamDeathPenalties.api.LamDeathPenaltiesAPI;
-import org.bukkit.plugin.RegisteredServiceProvider;
+## Commands
 
-public class YourPlugin extends JavaPlugin {
-    private LamDeathPenaltiesAPI soulPointsAPI;
-    
-    @Override
-    public void onEnable() {
-        // Get the API service
-        RegisteredServiceProvider<LamDeathPenaltiesAPI> provider = 
-            getServer().getServicesManager().getRegistration(LamDeathPenaltiesAPI.class);
-        
-        if (provider != null) {
-            soulPointsAPI = provider.getProvider();
-            getLogger().info("Successfully hooked into LamDeathPenalties API!");
-        } else {
-            getLogger().warning("LamDeathPenalties not found!");
-        }
-    }
-}
+| Command                         | Permission                   | Description                          |
+| ------------------------------- | ---------------------------- | ------------------------------------ |
+| `/lmdp`                         | *(default)*                  | Check your soul points               |
+| `/lmdp check <player>`          | `lmdp.check.others`          | View another player's soul points    |
+| `/lmdp set <player> <amount>`   | `lmdp.admin`                 | Set soul points (0 to max)           |
+| `/lmdp give <player> <amount>`  | `lmdp.admin`                 | Give soul points (capped at max)     |
+| `/lmdp take <player> <amount>`  | `lmdp.admin`                 | Remove soul points (min 0)           |
+| `/lmdp reload`                  | `lmdp.admin`                 | Reload config and refresh penalties  |
+
+**Aliases:** `/soulpoints`, `/sp`
+
+## Permissions
+
+| Permission          | Description                                  |
+| ------------------- | -------------------------------------------- |
+| `lmdp.bypass`       | Bypass all death penalties (keepInventory)   |
+| `lmdp.check.others` | Check other players' soul points             |
+| `lmdp.admin`        | Modify soul points and reload plugin         |
+
+## Setup
+
+1. **Install dependencies**: Download [YskLib](https://github.com/YusakiDev/YskLib/releases) (1.6.1+) and place it in `plugins/`.
+2. **Drop the jar**: Add LamDeathPenalties to `plugins/` and start the server.
+3. **Configure penalties**: Edit `plugins/LamDeathPenalties/config.yml`:
+   - Set `soul-points.max` and `soul-points.starting` values
+   - Choose recovery mode (`real-time` or `active-time`) and interval
+   - Configure penalty tiers (0-10) with item drops, max health, money, and commands
+4. **Customize messages**: All notification text lives under `messages:` in the config (death penalties, recovery alerts, command responses).
+5. **Optional integrations**:
+   - Install Vault for money penalties
+   - Install PlaceholderAPI to use `%lamdeathpenalties_*%` placeholders
+6. Grant permissions to staff for admin commands.
+
+## Configuration Examples
+
+### Soul Points Level with Commands
+
+```yaml
+soul-points:
+  drop-rates:
+    5:
+      items:
+        drop-percent: 50
+        hotbar: true
+        armor: false
+      max-health:
+        mode: "remove"
+        amount: 2.0
+      money:
+        mode: "flat"
+        amount: 150.0
+      commands:
+        - "title %player% title {\"text\":\"Soul Points Critical!\",\"color\":\"red\"}"
+        - "title %player% subtitle {\"text\":\"Half your soul is gone...\",\"color\":\"gray\"}"
 ```
 
-## API Methods
+### Max Health Modes
 
-### Reading Soul Points
+```yaml
+default-penalty:
+  max-health:
+    mode: "remove"  # Deducts hearts from base health
+    amount: 0.0
 
-```java
-// Get a player's current soul points
-int points = soulPointsAPI.getSoulPoints(player);
-int points = soulPointsAPI.getSoulPoints(playerUUID);
-
-// Check if player exists in the system
-boolean exists = soulPointsAPI.hasPlayerData(player);
-
-// Get configuration values
-int maxPoints = soulPointsAPI.getMaxSoulPoints(); // Usually 10
-int startingPoints = soulPointsAPI.getStartingSoulPoints(); // Usually 10
+# Or grant bonus hearts:
+9:
+  max-health:
+    mode: "add"     # Grants extra hearts as reward for high soul points
+    amount: 5.0
 ```
 
-### Modifying Soul Points
+### Recovery Settings
 
-```java
-// Set soul points directly (clamped to 0-max)
-boolean success = soulPointsAPI.setSoulPoints(player, 5);
-
-// Add soul points (can be negative to subtract)
-boolean success = soulPointsAPI.addSoulPoints(player, 2);
-
-// Remove soul points
-boolean success = soulPointsAPI.removeSoulPoints(player, 1);
+```yaml
+soul-points:
+  recovery:
+    mode: "real-time"       # Options: "real-time" or "active-time"
+    interval-seconds: 3600  # 1 hour for real-time, 1 hour of playtime for active-time
 ```
 
-### Drop Rate Information
+## PlaceholderAPI Placeholders
+
+| Placeholder                              | Description                                  |
+| ---------------------------------------- | -------------------------------------------- |
+| `%lamdeathpenalties_current_points%`     | Current soul points                          |
+| `%lamdeathpenalties_max_points%`         | Maximum soul points                          |
+| `%lamdeathpenalties_next_item_drop%`     | Item drop % at current level                 |
+| `%lamdeathpenalties_next_hotbar_drop%`   | Hotbar vulnerable? (true/false)              |
+| `%lamdeathpenalties_next_armor_drop%`    | Armor vulnerable? (true/false)               |
+| `%lamdeathpenalties_next_money_drop%`    | Money penalty at current level               |
+| `%lamdeathpenalties_next_max_health%`    | Max health penalty at current level          |
+
+## Public API
+
+Developers can hook into LamDeathPenalties:
 
 ```java
-// Get drop rates for a specific soul point level
-DropRates rates = soulPointsAPI.getDropRates(3);
-System.out.println("Item drop: " + rates.itemDrop + "%");
-System.out.println("Hotbar vulnerable: " + rates.hotbarDrop);
-System.out.println("Armor vulnerable: " + rates.armorDrop);
+// Get the API
+LamDeathPenaltiesAPI api = Bukkit.getServicesManager()
+    .getRegistration(LamDeathPenaltiesAPI.class).getProvider();
 
-// Get drop rates for a player's current level
-DropRates playerRates = soulPointsAPI.getPlayerDropRates(player);
-```
+// Check soul points
+int points = api.getSoulPoints(player.getUniqueId());
 
-### Recovery Information
+// Get penalty info
+DropRates rates = api.getDropRates(player);
+plugin.getLogger().info("Item drop: " + rates.itemDrop + "%");
+plugin.getLogger().info("Max health penalty: " + rates.maxHealthPenalty + " hearts");
 
-```java
-// Get time until next recovery in milliseconds
-long timeMs = soulPointsAPI.getTimeUntilNextRecovery(player);
-if (timeMs > 0) {
-    long minutes = timeMs / (1000 * 60);
-    player.sendMessage("Recovery in " + minutes + " minutes");
-} else {
-    player.sendMessage("Ready for recovery!");
-}
-
-// Manually trigger recovery processing
-boolean recoveryOccurred = soulPointsAPI.processRecovery(player);
-```
-
-## Events
-
-The API provides two events for listening to soul point changes:
-
-### SoulPointsChangeEvent (Cancellable)
-
-Called **before** soul points change. Can be cancelled or modified.
-
-```java
+// Listen to events
 @EventHandler
 public void onSoulPointsChange(SoulPointsChangeEvent event) {
-    Player player = event.getPlayer();
-    int oldPoints = event.getOldSoulPoints();
-    int newPoints = event.getNewSoulPoints();
-    ChangeReason reason = event.getReason();
-    
-    // Cancel death penalties for VIP players
-    if (reason == ChangeReason.DEATH && player.hasPermission("vip.nodeathpenalty")) {
-        event.setCancelled(true);
-        player.sendMessage("&aVIP protection activated!");
-        return;
-    }
-    
-    // Double recovery for premium players
-    if (reason == ChangeReason.RECOVERY && player.hasPermission("premium.fastrecovery")) {
-        int recoveryAmount = newPoints - oldPoints;
-        event.setNewSoulPoints(Math.min(newPoints + recoveryAmount, 10));
+    if (event.getNewSoulPoints() == 0) {
+        event.setCancelled(true); // Prevent dropping to 0
     }
 }
 ```
 
-### SoulPointsChangedEvent (Not Cancellable)
+**Events:**
+- `SoulPointsChangeEvent` (cancellable, before change)
+- `SoulPointsChangedEvent` (after change)
 
-Called **after** soul points have changed.
+## Limitations & Roadmap
 
-```java
-@EventHandler
-public void onSoulPointsChanged(SoulPointsChangedEvent event) {
-    Player player = event.getPlayer();
-    int change = event.getChangeAmount(); // Positive = gained, negative = lost
-    
-    // Notify about significant changes
-    if (Math.abs(change) >= 3) {
-        Bukkit.broadcastMessage(player.getName() + " lost/gained " + Math.abs(change) + " soul points!");
-    }
-    
-    // Warning for low soul points
-    if (event.getNewSoulPoints() <= 2) {
-        player.sendMessage("&c⚠ Warning: Critical soul point level!");
-    }
-}
-```
+* No cross-server soul points syncing yet
+* Active-time recovery mode requires playtime tracking improvements
 
-### Change Reasons
+## Requirements
 
-```java
-public enum ChangeReason {
-    DEATH,           // Player died
-    RECOVERY,        // Automatic recovery
-    COMMAND,         // Admin command
-    API,             // Direct API call (setSoulPoints)
-    PLUGIN_SET,      // Plugin used API
-    PLUGIN_ADD,      // Plugin added points
-    PLUGIN_REMOVE    // Plugin removed points
-}
-```
-
-## Practical Examples
-
-### Example 1: Reward System Integration
-
-```java
-public void giveQuestReward(Player player) {
-    int soulPoints = soulPointsAPI.getSoulPoints(player);
-    
-    if (soulPoints >= 8) {
-        // Premium rewards for high soul points
-        giveItem(player, "DIAMOND", 5);
-        player.sendMessage("&bBonus reward for high soul points!");
-    } else if (soulPoints >= 5) {
-        // Standard rewards
-        giveItem(player, "IRON_INGOT", 10);
-    } else {
-        // Reduced rewards for low soul points
-        giveItem(player, "COBBLESTONE", 32);
-        player.sendMessage("&7Reward reduced due to low soul points...");
-    }
-}
-```
-
-### Example 2: Protection System
-
-```java
-@EventHandler
-public void onSoulPointsChange(SoulPointsChangeEvent event) {
-    Player player = event.getPlayer();
-    
-    // Protect players in safe zones
-    if (isInSafeZone(player) && event.getReason() == ChangeReason.DEATH) {
-        event.setCancelled(true);
-        player.sendMessage("&aSafe zone protection prevented soul point loss!");
-    }
-    
-    // Grace period for new players
-    if (getPlaytime(player) < 3600000 && event.getReason() == ChangeReason.DEATH) { // 1 hour
-        event.setCancelled(true);
-        player.sendMessage("&eNewbie protection active!");
-    }
-}
-```
-
-### Example 3: Display Integration
-
-```java
-public void showPlayerStats(Player viewer, Player target) {
-    int points = soulPointsAPI.getSoulPoints(target);
-    int maxPoints = soulPointsAPI.getMaxSoulPoints();
-    DropRates rates = soulPointsAPI.getPlayerDropRates(target);
-    
-    viewer.sendMessage("&b" + target.getName() + "'s Soul Points: " + points + "/" + maxPoints);
-    viewer.sendMessage("&7Drop Rate: " + rates.itemDrop + "% items");
-    viewer.sendMessage("&7Hotbar Protected: " + (!rates.hotbarDrop ? "&aYes" : "&cNo"));
-    viewer.sendMessage("&7Armor Protected: " + (!rates.armorDrop ? "&aYes" : "&cNo"));
-    
-    long recovery = soulPointsAPI.getTimeUntilNextRecovery(target);
-    if (recovery > 0) {
-        long minutes = recovery / (1000 * 60);
-        viewer.sendMessage("&7Next Recovery: " + minutes + " minutes");
-    }
-}
-```
-
-### Example 4: Soul Point Marketplace
-
-```java
-public void buySoulPoint(Player player) {
-    // Check if player can afford it
-    if (!economy.has(player, 1000)) {
-        player.sendMessage("&cYou need $1000 to buy a soul point!");
-        return;
-    }
-    
-    // Check if player is at max
-    int current = soulPointsAPI.getSoulPoints(player);
-    int max = soulPointsAPI.getMaxSoulPoints();
-    if (current >= max) {
-        player.sendMessage("&cYou already have maximum soul points!");
-        return;
-    }
-    
-    // Purchase the soul point
-    economy.withdrawPlayer(player, 1000);
-    boolean success = soulPointsAPI.addSoulPoints(player, 1);
-    
-    if (success) {
-        player.sendMessage("&aPurchased 1 soul point for $1000!");
-    } else {
-        economy.depositPlayer(player, 1000); // Refund
-        player.sendMessage("&cFailed to purchase soul point!");
-    }
-}
-```
-
-## Best Practices
-
-1. **Always check if API is available** before using it
-2. **Handle event cancellation** - other plugins might cancel your changes
-3. **Use appropriate change reasons** when modifying soul points via API
-4. **Respect the max/min limits** - the API will clamp values but you should check first
-5. **Listen to both events** - use `SoulPointsChangeEvent` to prevent/modify, `SoulPointsChangedEvent` to react
-6. **Be careful with recursive changes** - don't modify soul points inside change events unless necessary
-
-## API Versioning
-
-This API follows semantic versioning. Major version changes may include breaking changes, while minor versions add features and patches fix bugs.
-
-Current API Version: 1.0.0
+* Paper or Folia 1.20+
+* Java 21 runtime
+* [YskLib](https://github.com/YusakiDev/YskLib/releases) 1.6.1 or above
+* (Optional) Vault for money penalties
+* (Optional) PlaceholderAPI for placeholder support
 
 ## Support
 
-For API support or feature requests, please create an issue on the plugin's GitHub repository.
+* Issues: [GitHub](https://github.com/LamaliaNetwork/LamDeathPenalties/issues)
+* Discord: [YusakiDev](https://discord.gg/AjEh3dMPfq)
+
+Add consequence to death with a soul points system that scales penalties as players lose their essence.
