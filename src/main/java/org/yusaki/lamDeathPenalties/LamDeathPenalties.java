@@ -57,6 +57,10 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
         soulPointsCommand = new SoulPointsCommand(this, soulPointsManager, recoveryScheduler);
 
         for (Player player : Bukkit.getOnlinePlayers()) {
+            soulPointsManager.startSession(player.getUniqueId());
+            if (recoveryScheduler != null) {
+                recoveryScheduler.onPlayerJoin(player.getUniqueId());
+            }
             soulPointsManager.refreshPlayerMaxHealth(player);
         }
         
@@ -105,6 +109,7 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
         if (!isSoulPointsEnabled()) {
             return;
         }
+        soulPointsManager.startSession(event.getPlayer().getUniqueId());
         if (recoveryScheduler != null) {
             recoveryScheduler.onPlayerJoin(event.getPlayer().getUniqueId());
         }
@@ -116,6 +121,7 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
         if (!isSoulPointsEnabled()) {
             return;
         }
+        soulPointsManager.endSession(event.getPlayer().getUniqueId());
         if (recoveryScheduler != null) {
             recoveryScheduler.onPlayerQuit(event.getPlayer().getUniqueId());
         }
