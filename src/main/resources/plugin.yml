@@ -1,7 +1,7 @@
 name: LamDeathPenalties
 version: '${project.version}'
 main: org.yusaki.lamDeathPenalties.LamDeathPenalties
-api-version: '1.20'
+api-version: '1.21'
 folia-supported: true
 author: YusakiDev
 depend: [YskLib]

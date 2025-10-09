@@ -72,7 +72,7 @@ soul-points:
 
 ## Setup
 
-1. **Install dependencies**: Download [YskLib](https://github.com/YusakiDev/YskLib/releases) (1.6.1+) and place it in `plugins/`.
+1. **Install dependencies**: Download [YskLib](https://github.com/YusakiDev/YskLib/releases) (1.6.7+) and place it in `plugins/`.
 2. **Drop the jar**: Add LamDeathPenalties to `plugins/` and start the server.
 3. **Configure penalties**: Edit `plugins/LamDeathPenalties/config.yml`:
    - Set `soul-points.max` and `soul-points.starting` values
@@ -143,36 +143,6 @@ soul-points:
 | `%lamdeathpenalties_next_money_drop%`    | Money penalty at current level               |
 | `%lamdeathpenalties_next_max_health%`    | Max health penalty at current level          |
 
-## Public API
-
-Developers can hook into LamDeathPenalties:
-
-```java
-// Get the API
-LamDeathPenaltiesAPI api = Bukkit.getServicesManager()
-    .getRegistration(LamDeathPenaltiesAPI.class).getProvider();
-
-// Check soul points
-int points = api.getSoulPoints(player.getUniqueId());
-
-// Get penalty info
-DropRates rates = api.getDropRates(player);
-plugin.getLogger().info("Item drop: " + rates.itemDrop + "%");
-plugin.getLogger().info("Max health penalty: " + rates.maxHealthPenalty + " hearts");
-
-// Listen to events
-@EventHandler
-public void onSoulPointsChange(SoulPointsChangeEvent event) {
-    if (event.getNewSoulPoints() == 0) {
-        event.setCancelled(true); // Prevent dropping to 0
-    }
-}
-```
-
-**Events:**
-- `SoulPointsChangeEvent` (cancellable, before change)
-- `SoulPointsChangedEvent` (after change)
-
 ## Limitations & Roadmap
 
 * No cross-server soul points syncing yet
@@ -180,9 +150,9 @@ public void onSoulPointsChange(SoulPointsChangeEvent event) {
 
 ## Requirements
 
-* Paper or Folia 1.20+
+* Paper or Folia 1.21+
 * Java 21 runtime
-* [YskLib](https://github.com/YusakiDev/YskLib/releases) 1.6.1 or above
+* [YskLib](https://github.com/YusakiDev/YskLib/releases) 1.6.7 or above
 * (Optional) Vault for money penalties
 * (Optional) PlaceholderAPI for placeholder support
 
