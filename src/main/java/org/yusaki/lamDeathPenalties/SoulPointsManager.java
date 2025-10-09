@@ -578,11 +578,26 @@ public class SoulPointsManager {
         }
         PlayerSoulData data = playerData.get(playerId);
         if (data == null) return 0;
-        
         long intervalSeconds = plugin.getRecoveryIntervalSeconds();
         long intervalMs = intervalSeconds * 1000L;
-        long timeSinceLastRecovery = System.currentTimeMillis() - data.lastRecoveryTime;
+
+        if (plugin.getRecoveryMode().equals("active-time")) {
+            int maxPoints = plugin.getConfig().getInt("soul-points.max", 10);
+            if (data.soulPoints >= maxPoints) {
+                return 0;
+            }
+
+            long currentTime = System.currentTimeMillis();
+            long accumulatedPlayTime = data.totalPlayTime;
+            if (data.sessionStartTime > 0L) {
+                accumulatedPlayTime += Math.max(0L, currentTime - data.sessionStartTime);
+            }
+
+            long remainder = intervalMs - (accumulatedPlayTime % intervalMs);
+            return remainder == intervalMs ? 0 : remainder;
+        }
         
+        long timeSinceLastRecovery = System.currentTimeMillis() - data.lastRecoveryTime;
         return Math.max(0, intervalMs - timeSinceLastRecovery);
     }
     
