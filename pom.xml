@@ -6,7 +6,7 @@
 
     <groupId>org.yusaki</groupId>
     <artifactId>LamDeathPenalties</artifactId>
-    <version>0.5.1${build.number.formatted}</version>
+    <version>0.5.2${build.number.formatted}</version>
     <packaging>jar</packaging>
 
     <name>LamDeathPenalties</name>
@@ -112,7 +112,7 @@
         <dependency>
             <groupId>com.tcoded</groupId>
             <artifactId>FoliaLib</artifactId>
-            <version>0.5.1</version>
+            <version>0.5.2</version>
         </dependency>
         <dependency>
             <groupId>org.yusaki</groupId>
