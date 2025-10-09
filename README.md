@@ -1,6 +1,6 @@
 # LamDeathPenalties
 
-LamDeathPenalties adds a soul points system with progressive death penalties for Paper/Folia 1.20+. Players lose soul points on death, facing harsher consequences as their soul weakens—from item drops to max health reduction.
+LamDeathPenalties adds a soul points system with progressive death penalties for Paper/Folia 1.21+. Players lose soul points on death, facing harsher consequences as their soul weakens—from item drops to max health reduction.
 
 ## Key Features
 
