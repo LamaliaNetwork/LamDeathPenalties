@@ -521,25 +521,54 @@ public class SoulPointsManager {
         long intervalSeconds = plugin.getRecoveryIntervalSeconds();
         long intervalMs = intervalSeconds * 1000L;
         
-        long currentTime = System.currentTimeMillis();
-        long timeSinceLastRecovery = currentTime - data.lastRecoveryTime;
-        
-        if (recoveryMode.equals("active-time")) {
-            // For active time, we need to track play sessions
-            // This is simplified - in practice you'd track session start/end times
+        int maxPoints = plugin.getConfig().getInt("soul-points.max", 10);
+        if (data.soulPoints >= maxPoints) {
             return;
         }
         
-        // Real-time recovery
-        if (timeSinceLastRecovery >= intervalMs) {
-            int maxPoints = plugin.getConfig().getInt("soul-points.max", 10);
-            if (data.soulPoints < maxPoints) {
-                int recoveryCount = (int) (timeSinceLastRecovery / intervalMs);
-                int newPoints = Math.min(maxPoints, data.soulPoints + recoveryCount);
-                data.soulPoints = newPoints;
-                data.lastRecoveryTime = currentTime;
-                savePlayerData();
+        if (recoveryMode.equals("active-time")) {
+            long currentTime = System.currentTimeMillis();
+            long accumulatedPlayTime = data.totalPlayTime;
+            
+            if (data.sessionStartTime > 0L) {
+                accumulatedPlayTime += Math.max(0L, currentTime - data.sessionStartTime);
             }
+
+            long availableIntervals = accumulatedPlayTime / intervalMs;
+            if (availableIntervals <= 0) {
+                return;
+            }
+
+            int missingSoulPoints = Math.max(0, maxPoints - data.soulPoints);
+            int recoveries = (int) Math.min(availableIntervals, missingSoulPoints);
+            if (recoveries <= 0) {
+                return;
+            }
+
+            long timeConsumed = recoveries * intervalMs;
+            long newRemainder = accumulatedPlayTime - timeConsumed;
+
+            data.soulPoints += recoveries;
+            data.totalPlayTime = newRemainder;
+            if (data.sessionStartTime > 0L) {
+                // Carry the remainder forward by setting the session start to now.
+                data.sessionStartTime = currentTime;
+            }
+
+            savePlayerData();
+            plugin.getYskLib().logDebug(plugin, "Active-time recovery for " + playerId + ": +" + recoveries + " point(s)");
+            return;
+        }
+        
+        long currentTime = System.currentTimeMillis();
+        long timeSinceLastRecovery = currentTime - data.lastRecoveryTime;
+        
+        if (timeSinceLastRecovery >= intervalMs) {
+            int recoveryCount = (int) (timeSinceLastRecovery / intervalMs);
+            int newPoints = Math.min(maxPoints, data.soulPoints + recoveryCount);
+            data.soulPoints = newPoints;
+            data.lastRecoveryTime = currentTime;
+            savePlayerData();
         }
     }
     
