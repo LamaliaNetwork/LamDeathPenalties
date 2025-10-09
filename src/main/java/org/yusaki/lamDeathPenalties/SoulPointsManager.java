@@ -456,13 +456,56 @@ public class SoulPointsManager {
         return result;
     }
 
+    public void startSession(UUID playerId) {
+        if (!plugin.isSoulPointsEnabled()) {
+            return;
+        }
+        if (!"active-time".equals(plugin.getRecoveryMode())) {
+            return;
+        }
+        PlayerSoulData data = playerData.get(playerId);
+        if (data == null) {
+            int startingPoints = plugin.getConfig().getInt("soul-points.starting", 10);
+            data = new PlayerSoulData(startingPoints, System.currentTimeMillis(), 0);
+            playerData.put(playerId, data);
+        }
+
+        if (data.sessionStartTime == 0L) {
+            data.sessionStartTime = System.currentTimeMillis();
+            plugin.getYskLib().logDebug(plugin, "Started active-time session for " + playerId);
+            savePlayerData();
+        }
+    }
+
+    public void endSession(UUID playerId) {
+        if (!plugin.isSoulPointsEnabled()) {
+            return;
+        }
+        if (!"active-time".equals(plugin.getRecoveryMode())) {
+            return;
+        }
+        PlayerSoulData data = playerData.get(playerId);
+        if (data == null || data.sessionStartTime == 0L) {
+            return;
+        }
+
+        long sessionDuration = Math.max(0L, System.currentTimeMillis() - data.sessionStartTime);
+        data.totalPlayTime += sessionDuration;
+        data.sessionStartTime = 0L;
+        savePlayerData();
+        plugin.getYskLib().logDebug(plugin, "Ended active-time session for " + playerId + " (+" + (sessionDuration / 1000L) + "s)");
+    }
+
     public void updatePlayTime(UUID playerId, long sessionTime) {
         if (!plugin.isSoulPointsEnabled()) {
             return;
         }
         PlayerSoulData data = playerData.get(playerId);
         if (data != null) {
-            data.totalPlayTime += sessionTime;
+            data.totalPlayTime += Math.max(0L, sessionTime);
+            if (data.sessionStartTime > 0L) {
+                data.sessionStartTime = System.currentTimeMillis();
+            }
             savePlayerData();
         }
     }
