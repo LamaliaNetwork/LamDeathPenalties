@@ -778,11 +778,13 @@ public class SoulPointsManager {
         public int soulPoints;
         public long lastRecoveryTime;
         public long totalPlayTime;
+        public long sessionStartTime;
         
         public PlayerSoulData(int soulPoints, long lastRecoveryTime, long totalPlayTime) {
             this.soulPoints = soulPoints;
             this.lastRecoveryTime = lastRecoveryTime;
             this.totalPlayTime = totalPlayTime;
+            this.sessionStartTime = 0L;
         }
     }
     
