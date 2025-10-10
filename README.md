@@ -1,5 +1,3 @@
-# LamDeathPenalties
-
 LamDeathPenalties adds a soul points system with progressive death penalties for Paper/Folia 1.21+. Players lose soul points on death, facing harsher consequences as their soul weakens—from item drops to max health reduction.
 
 ## Key Features
@@ -14,9 +12,6 @@ LamDeathPenalties adds a soul points system with progressive death penalties for
 * **Fallback inheritance**: Penalties cascade upward through soul points levels—unset values inherit from the next higher tier automatically.
 * **Rich notifications**: Customizable death messages showing items lost, money penalties, max health changes, and recovery info.
 * **PlaceholderAPI support**: Expose current points, penalties, and recovery times to other plugins via placeholders.
-* **Public API**: Events and methods for developers to integrate soul points mechanics into custom plugins.
-* **Folia ready**: Uses FoliaLib scheduler for smooth regional threading on Folia servers.
-* **Hot reload**: `/lmdp reload` reloads config, messages, and refreshes penalties for online players instantly.
 
 ## How It Works
 
@@ -34,18 +29,18 @@ If a soul points level doesn't define a penalty, it inherits from the next highe
 
 ```yaml
 soul-points:
-  drop-rates:
-    9:
-      max-health:
-        mode: "remove"
-        amount: 5.0  # Level 9 loses 5 hearts
-    5:
-      max-health:
-        mode: "remove"
-        amount: 2.0  # Level 5 loses 2 hearts
-    3:
+   drop-rates:
+      9:
+         max-health:
+            mode: "remove"
+            amount: 5.0  # Level 9 loses 5 hearts
+      5:
+         max-health:
+            mode: "remove"
+            amount: 2.0  # Level 5 loses 2 hearts
+      3:
       # No max-health defined → inherits from level 5 (2.0 hearts)
-    0:
+      0:
       # No max-health defined → inherits from level 3 → level 5 (2.0 hearts)
 ```
 
@@ -90,45 +85,45 @@ soul-points:
 
 ```yaml
 soul-points:
-  drop-rates:
-    5:
-      items:
-        drop-percent: 50
-        hotbar: true
-        armor: false
-      max-health:
-        mode: "remove"
-        amount: 2.0
-      money:
-        mode: "flat"
-        amount: 150.0
-      commands:
-        - "title %player% title {\"text\":\"Soul Points Critical!\",\"color\":\"red\"}"
-        - "title %player% subtitle {\"text\":\"Half your soul is gone...\",\"color\":\"gray\"}"
+   drop-rates:
+      5:
+         items:
+            drop-percent: 50
+            hotbar: true
+            armor: false
+         max-health:
+            mode: "remove"
+            amount: 2.0
+         money:
+            mode: "flat"
+            amount: 150.0
+         commands:
+            - "title %player% title {\"text\":\"Soul Points Critical!\",\"color\":\"red\"}"
+            - "title %player% subtitle {\"text\":\"Half your soul is gone...\",\"color\":\"gray\"}"
 ```
 
 ### Max Health Modes
 
 ```yaml
 default-penalty:
-  max-health:
-    mode: "remove"  # Deducts hearts from base health
-    amount: 0.0
+   max-health:
+      mode: "remove"  # Deducts hearts from base health
+      amount: 0.0
 
 # Or grant bonus hearts:
 9:
-  max-health:
-    mode: "add"     # Grants extra hearts as reward for high soul points
-    amount: 5.0
+   max-health:
+      mode: "add"     # Grants extra hearts as reward for high soul points
+      amount: 5.0
 ```
 
 ### Recovery Settings
 
 ```yaml
 soul-points:
-  recovery:
-    mode: "real-time"       # Options: "real-time" or "active-time"
-    interval-seconds: 3600  # 1 hour for real-time, 1 hour of playtime for active-time
+   recovery:
+      mode: "real-time"       # Options: "real-time" or "active-time"
+      interval-seconds: 3600  # 1 hour for real-time, 1 hour of playtime for active-time
 ```
 
 ## PlaceholderAPI Placeholders
