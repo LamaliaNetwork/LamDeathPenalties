@@ -755,13 +755,16 @@ public class SoulPointsManager {
         if (commands == null || commands.isEmpty()) {
             return;
         }
-        for (String command : commands) {
-            if (command == null || command.trim().isEmpty()) {
-                continue;
+        // Schedule commands on the main/region thread to avoid IllegalStateException in Folia/Canvas
+        plugin.getFoliaLib().getImpl().runAtEntity(player, task -> {
+            for (String command : commands) {
+                if (command == null || command.trim().isEmpty()) {
+                    continue;
+                }
+                String parsed = command.replace("%player%", player.getName());
+                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), parsed);
             }
-            String parsed = command.replace("%player%", player.getName());
-            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), parsed);
-        }
+        });
     }
 
     public static class MaxHealthPenaltyResult {

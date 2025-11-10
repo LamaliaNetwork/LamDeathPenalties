@@ -6,7 +6,7 @@
 
     <groupId>org.yusaki</groupId>
     <artifactId>LamDeathPenalties</artifactId>
-    <version>0.5.2${build.number.formatted}</version>
+    <version>0.5.3${build.number.formatted}</version>
     <packaging>jar</packaging>
 
     <name>LamDeathPenalties</name>
@@ -120,7 +120,7 @@
         <dependency>
             <groupId>org.yusaki</groupId>
             <artifactId>lib</artifactId>
-            <version>1.6.7</version>
+            <version>1.6.9</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
