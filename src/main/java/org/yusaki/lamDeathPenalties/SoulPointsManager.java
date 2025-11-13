@@ -755,8 +755,9 @@ public class SoulPointsManager {
         if (commands == null || commands.isEmpty()) {
             return;
         }
-        // Schedule commands on the main/region thread to avoid IllegalStateException in Folia/Canvas
-        plugin.getFoliaLib().getImpl().runAtEntity(player, task -> {
+        // Schedule commands on the global thread to avoid IllegalStateException in Folia/Canvas
+        // Commands must be dispatched on the global tick thread, not entity/region threads
+        plugin.getFoliaLib().getImpl().runNextTick(task -> {
             for (String command : commands) {
                 if (command == null || command.trim().isEmpty()) {
                     continue;

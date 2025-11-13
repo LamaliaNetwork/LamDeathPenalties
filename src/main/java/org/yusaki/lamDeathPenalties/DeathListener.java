@@ -100,8 +100,8 @@ public class DeathListener implements Listener {
 
         plugin.getYskLib().logDebug(plugin, "Soul points for " + player.getName() + ": " + oldSoulPoints + " -> " + currentSoulPoints);
 
-        // Get drop rates for current soul points
-        SoulPointsManager.DropRates dropRates = soulPointsManager.getDropRates(currentSoulPoints);
+        // Get drop rates for old soul points (before death penalty)
+        SoulPointsManager.DropRates dropRates = soulPointsManager.getDropRates(oldSoulPoints);
 
         plugin.getYskLib().logDebug(plugin, "Drop rates - Items: " + dropRates.itemDrop + "%, Hotbar: " + dropRates.hotbarDrop + ", Armor: " + dropRates.armorDrop);
 
@@ -128,12 +128,12 @@ public class DeathListener implements Listener {
     private ItemDropResult handleItemDrops(PlayerDeathEvent event, SoulPointsManager.DropRates dropRates) {
         Player player = event.getEntity();
         
-        // Always clear default drops to prevent duplication
+        // Always clear default drops and keep inventory - we'll handle drops manually
         event.getDrops().clear();
+        event.setKeepInventory(true);
         
         if (dropRates.itemDrop == 0) {
             // No items should drop, keep everything
-            event.setKeepInventory(true);
             return new ItemDropResult(0, 0, new HashMap<>());
         }
         
@@ -208,12 +208,13 @@ public class DeathListener implements Listener {
         Map<org.bukkit.Material, Integer> droppedItems = new HashMap<>();
         int totalVulnerableCount = vulnerableItems.size();
         int itemsToDropCount = 0;
+        List<ItemEntry> itemsToDrop = new ArrayList<>();
         
         // Calculate what to drop from vulnerable items (by individual item count)
         if (dropRates.itemDrop >= 100) {
             // Drop all vulnerable items
             itemsToDropCount = vulnerableItems.size();
-            droppedItems = addItemEntriesToDrops(event, vulnerableItems);
+            itemsToDrop.addAll(vulnerableItems);
         } else if (dropRates.itemDrop > 0) {
             // Calculate number of individual items to drop
             itemsToDropCount = (int) Math.ceil(totalVulnerableCount * (dropRates.itemDrop / 100.0));
@@ -223,10 +224,7 @@ public class DeathListener implements Listener {
             
             for (int i = 0; i < vulnerableItems.size(); i++) {
                 if (i < itemsToDropCount) {
-                    ItemStack dropItem = new ItemStack(vulnerableItems.get(i).item.getType(), 1);
-                    event.getDrops().add(dropItem);
-                    // Track dropped items
-                    droppedItems.merge(dropItem.getType(), 1, Integer::sum);
+                    itemsToDrop.add(vulnerableItems.get(i));
                 } else {
                     itemsToKeep.add(vulnerableItems.get(i));
                 }
@@ -234,6 +232,18 @@ public class DeathListener implements Listener {
         } else {
             // Keep all vulnerable items
             itemsToKeep.addAll(vulnerableItems);
+        }
+        
+        // Clear player inventory and manually drop items at death location
+        // This must be done immediately while still in the death event
+        player.getInventory().clear();
+        player.getInventory().setArmorContents(new ItemStack[4]);
+        player.getInventory().setItemInOffHand(null);
+        
+        // Manually drop items at death location (keepInventory=true prevents event.getDrops() from working)
+        for (ItemEntry entry : itemsToDrop) {
+            player.getWorld().dropItemNaturally(player.getLocation(), entry.item);
+            droppedItems.merge(entry.item.getType(), 1, Integer::sum);
         }
         
         // Schedule inventory restoration with original positions
@@ -287,8 +297,7 @@ public class DeathListener implements Listener {
     
     private void restoreKeptItemsToOriginalSlots(Player player, List<ItemEntry> itemsToKeep, 
                                                 ItemStack[] originalInventory, ItemStack[] originalArmor, ItemStack originalOffhand) {
-        // Clear inventory first
-        player.getInventory().clear();
+        // Inventory is already cleared in handleItemDrops, no need to clear again
         
         // Group items by slot and type to reconstruct original stacks
         Map<String, Map<Integer, List<ItemEntry>>> groupedItems = new HashMap<>();
