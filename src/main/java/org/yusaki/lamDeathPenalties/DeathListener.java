@@ -13,7 +13,10 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.metadata.FixedMetadataValue;
 
 import java.util.*;
 
@@ -25,6 +28,9 @@ public class DeathListener implements Listener {
     private final FoliaLib foliaLib;
     private final Random random;
     private static final double BALANCE_EPSILON = 0.0001D;
+    private static final String METADATA_KEY = "lmdp_dropped_items";
+    private static final String METADATA_KEPT_ITEMS = "lmdp_kept_items";
+    private static final String METADATA_PROCESSED = "lmdp_processed";
     
     
     public DeathListener(LamDeathPenalties plugin, SoulPointsManager soulPointsManager, FoliaLib foliaLib) {
@@ -32,6 +38,33 @@ public class DeathListener implements Listener {
         this.soulPointsManager = soulPointsManager;
         this.foliaLib = foliaLib;
         this.random = new Random();
+    }
+    
+    /**
+     * Public API for AxGraves to restore kept items after grave creation
+     * This should be called after AxGraves has collected the dropped items
+     */
+    public void restoreKeptItemsFromMetadata(Player player) {
+        if (!player.hasMetadata(METADATA_KEPT_ITEMS)) {
+            return;
+        }
+        
+        Object metadataValue = player.getMetadata(METADATA_KEPT_ITEMS).get(0).value();
+        if (!(metadataValue instanceof KeptItemsData keptData)) {
+            return;
+        }
+        
+        // Schedule restoration using Folia-compatible scheduler
+        foliaLib.getImpl().runNextTick(task -> {
+            restoreKeptItemsToOriginalSlots(player, keptData.itemsToKeep, keptData.originalInventory, keptData.originalArmor, keptData.originalOffhand);
+            
+            // Clean up metadata
+            player.removeMetadata(METADATA_KEPT_ITEMS, plugin);
+            player.removeMetadata(METADATA_KEY, plugin);
+            player.removeMetadata(METADATA_PROCESSED, plugin);
+            
+            plugin.getYskLib().logDebug(plugin, "Restored kept items for " + player.getName() + " after AxGraves grave creation");
+        });
     }
     
     // Workaround for Folia - PlayerRespawnEvent doesn't fire on Folia
@@ -62,6 +95,69 @@ public class DeathListener implements Listener {
         }
     }
 
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlayerKill(PlayerDeathEvent event) {
+        Player victim = event.getEntity();
+        
+        if (!plugin.isSoulPointsEnabled()) {
+            return;
+        }
+        
+        if (!plugin.getConfig().getBoolean("soul-points.max-soul-points.enabled", true)) {
+            return;
+        }
+        
+        // Check if the victim was killed by another player
+        EntityDamageEvent lastDamageCause = victim.getLastDamageCause();
+        if (!(lastDamageCause instanceof EntityDamageByEntityEvent damageByEntityEvent)) {
+            return;
+        }
+        
+        // Get the killer (could be direct player or projectile shooter)
+        Player killer = null;
+        if (damageByEntityEvent.getDamager() instanceof Player) {
+            killer = (Player) damageByEntityEvent.getDamager();
+        } else if (damageByEntityEvent.getDamager() instanceof org.bukkit.entity.Projectile projectile) {
+            if (projectile.getShooter() instanceof Player) {
+                killer = (Player) projectile.getShooter();
+            }
+        }
+        
+        if (killer == null || killer.getUniqueId().equals(victim.getUniqueId())) {
+            return;  // No killer or suicide
+        }
+        
+        // Check if killer has bypass permission
+        if (killer.hasPermission("lmdp.bypass")) {
+            return;
+        }
+        
+        // Reduce killer's max soul points
+        int reductionAmount = plugin.getConfig().getInt("soul-points.max-soul-points.reduction-per-kill", 1);
+        int oldMax = soulPointsManager.getMaxSoulPoints(killer.getUniqueId());
+        
+        soulPointsManager.reduceMaxSoulPoints(killer.getUniqueId(), reductionAmount);
+        
+        int newMax = soulPointsManager.getMaxSoulPoints(killer.getUniqueId());
+        
+        // Notify killer if their max was reduced
+        if (newMax < oldMax) {
+            int reduction = oldMax - newMax;
+            int configMax = plugin.getConfig().getInt("soul-points.max", 10);
+            org.yusaki.lib.modules.MessageManager messageManager = plugin.getMessageManager();
+            
+            plugin.getYskLib().logDebug(plugin, "Player " + killer.getName() + " killed " + victim.getName() + " - max soul points reduced by " + reduction);
+            
+            messageManager.sendMessageList(plugin, killer, "max-soul-points-reduced", placeholders(
+                "count", String.valueOf(reduction),
+                "plural", reduction > 1 ? "s" : "",
+                "current_max", String.valueOf(newMax),
+                "config_max", String.valueOf(configMax),
+                "victim", victim.getName()
+            ));
+        }
+    }
+    
     @EventHandler(priority = EventPriority.HIGH)
     public void onPlayerDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
@@ -88,6 +184,9 @@ public class DeathListener implements Listener {
             plugin.getYskLib().logDebug(plugin, "keepInventory is enabled in world " + player.getWorld().getName() + " - skipping");
             return;
         }
+        
+        // Mark that we processed this death
+        player.setMetadata(METADATA_PROCESSED, new FixedMetadataValue(plugin, true));
 
         // Get soul points before reduction
         int oldSoulPoints = soulPointsManager.getSoulPoints(player.getUniqueId());
@@ -240,16 +339,66 @@ public class DeathListener implements Listener {
         player.getInventory().setArmorContents(new ItemStack[4]);
         player.getInventory().setItemInOffHand(null);
         
-        // Manually drop items at death location (keepInventory=true prevents event.getDrops() from working)
-        for (ItemEntry entry : itemsToDrop) {
-            player.getWorld().dropItemNaturally(player.getLocation(), entry.item);
-            droppedItems.merge(entry.item.getType(), 1, Integer::sum);
-        }
+        // Check if AxGraves is installed
+        boolean axGravesInstalled = Bukkit.getPluginManager().isPluginEnabled("AxGraves");
         
-        // Schedule inventory restoration with original positions
-        foliaLib.getImpl().runNextTick(task -> {
-            restoreKeptItemsToOriginalSlots(player, itemsToKeep, originalInventory, originalArmor, originalOffhand);
-        });
+        if (axGravesInstalled) {
+            // Store dropped items in metadata for AxGraves to collect
+            List<ItemStack> itemsToDropList = new ArrayList<>();
+            for (ItemEntry entry : itemsToDrop) {
+                itemsToDropList.add(entry.item.clone());
+                droppedItems.merge(entry.item.getType(), 1, Integer::sum);
+            }
+            player.setMetadata(METADATA_KEY, new FixedMetadataValue(plugin, itemsToDropList));
+            
+            // Store kept items in metadata for restoration if AxGraves doesn't handle them
+            player.setMetadata(METADATA_KEPT_ITEMS, new FixedMetadataValue(plugin, new KeptItemsData(itemsToKeep, originalInventory, originalArmor, originalOffhand)));
+            
+            plugin.getYskLib().logDebug(plugin, "AxGraves detected - stored " + itemsToDropList.size() + " items in metadata for grave collection");
+            
+            // Fallback: If AxGraves doesn't process the items within 2 seconds, drop them manually
+            // This handles cases where AxGraves skips grave creation (no permission, disabled world, etc.)
+            Location deathLocation = player.getLocation().clone();
+            foliaLib.getImpl().runAtEntityLater(player, task -> {
+                if (player.hasMetadata(METADATA_KEY)) {
+                    // AxGraves never collected the items, drop them manually
+                    Object metadataValue = player.getMetadata(METADATA_KEY).get(0).value();
+                    if (metadataValue instanceof List<?>) {
+                        for (Object item : (List<?>) metadataValue) {
+                            if (item instanceof ItemStack itemStack) {
+                                player.getWorld().dropItemNaturally(deathLocation, itemStack);
+                            }
+                        }
+                    }
+                    
+                    // Restore kept items
+                    if (player.hasMetadata(METADATA_KEPT_ITEMS)) {
+                        Object keptMetadata = player.getMetadata(METADATA_KEPT_ITEMS).get(0).value();
+                        if (keptMetadata instanceof KeptItemsData keptData) {
+                            restoreKeptItemsToOriginalSlots(player, keptData.itemsToKeep, keptData.originalInventory, keptData.originalArmor, keptData.originalOffhand);
+                        }
+                    }
+                    
+                    // Clean up metadata
+                    player.removeMetadata(METADATA_KEY, plugin);
+                    player.removeMetadata(METADATA_KEPT_ITEMS, plugin);
+                    player.removeMetadata(METADATA_PROCESSED, plugin);
+                    
+                    plugin.getYskLib().logDebug(plugin, "AxGraves didn't create grave - falling back to manual drop for " + player.getName());
+                }
+            }, 40L); // 2 seconds delay
+        } else {
+            // Manually drop items at death location (keepInventory=true prevents event.getDrops() from working)
+            for (ItemEntry entry : itemsToDrop) {
+                player.getWorld().dropItemNaturally(player.getLocation(), entry.item);
+                droppedItems.merge(entry.item.getType(), 1, Integer::sum);
+            }
+            
+            // Schedule inventory restoration with original positions
+            foliaLib.getImpl().runNextTick(task -> {
+                restoreKeptItemsToOriginalSlots(player, itemsToKeep, originalInventory, originalArmor, originalOffhand);
+            });
+        }
         
         return new ItemDropResult(totalVulnerableCount, itemsToDropCount, droppedItems);
     }
@@ -529,6 +678,21 @@ public class DeathListener implements Listener {
             this.item = item;
             this.slot = slot;
             this.type = type;
+        }
+    }
+    
+    // Helper class to store kept items data for later restoration
+    private static class KeptItemsData {
+        final List<ItemEntry> itemsToKeep;
+        final ItemStack[] originalInventory;
+        final ItemStack[] originalArmor;
+        final ItemStack originalOffhand;
+        
+        KeptItemsData(List<ItemEntry> itemsToKeep, ItemStack[] originalInventory, ItemStack[] originalArmor, ItemStack originalOffhand) {
+            this.itemsToKeep = itemsToKeep;
+            this.originalInventory = originalInventory;
+            this.originalArmor = originalArmor;
+            this.originalOffhand = originalOffhand;
         }
     }
     

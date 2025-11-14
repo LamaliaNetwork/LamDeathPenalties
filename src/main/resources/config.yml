@@ -31,6 +31,19 @@ soul-points:
   recovery:
     mode: "real-time"      # Options: "real-time" or "active-time"
     interval-seconds: 3600 # Seconds between recovery ticks
+  
+  # Max Soul Points mechanics - affects the maximum soul points a player can have
+  # WARNING: If max soul points reach 0, players CANNOT recover regular soul points
+  #          until their max regenerates back above 0. This creates a harsh penalty!
+  max-soul-points:
+    enabled: true # Enable max soul points reduction on player kill
+    reduction-per-kill: 1  # How many max soul points to reduce per player kill
+    minimum: 5             # Minimum max soul points (0 = can go down to 0, always capped at 0)
+                           # Set to 1 or higher to ensure players can always recover some soul points
+    regeneration:
+      enabled: true        # Enable max soul points regeneration over time
+      mode: "real-time"    # Options: "real-time" or "active-time" (similar to regular recovery)
+      interval-seconds: 86400  # Seconds between max soul points recovery (default: 24 hours)
   drop-rates:
     10:
       items:
@@ -50,7 +63,6 @@ soul-points:
         amount: 5.0
       commands:
         - "title %player% title {\"text\":\"Soul Points Low!\",\"color\":\"yellow\"}"
-        - "playsound minecraft:block.note_block.pling %player% ~ ~ ~ 1 0.5"
     8:
       items:
         drop-percent: 20
@@ -107,7 +119,6 @@ soul-points:
         armor: true        # Everything drops
       commands:
         - "title %player% title {\"text\":\"Soul Lost\",\"color\":\"dark_red\"}"
-        - "playsound minecraft:entity.wither.death %player% ~ ~ ~ 1 0.5"
         # - "kick %player% You have lost all your soul points!"  # Example: kick player
 
 # Message configuration
@@ -144,6 +155,14 @@ messages:
   # Recovery notification
   recovery-gained:
     - "&a✦ You recovered {count} soul point{plural}! Current: {current_points}/{max_points}"
+  
+  # Max soul points notifications
+  max-soul-points-reduced:
+    - "&c⚠ Your soul capacity diminished by {count} point{plural} after killing {victim}!"
+    - "&7Max Soul Points: &c{current_max}&7/&f{config_max}"
+  
+  max-soul-points-recovery-gained:
+    - "&a✦ Your soul capacity recovered by {count} point{plural}! Current max: {current_max}/{config_max}"
 
   # Soul points display
   soul-points-display:
@@ -160,6 +179,7 @@ messages:
     - "  &cMax Health Loss: &f{max_health_drop}"
     - ""
     - "&7Next Recovery: &f{recovery_time}"
+    - "&7Next Max Recovery: &f{max_recovery_time}"
     - "&8&m                                                "
 
   # Help menu

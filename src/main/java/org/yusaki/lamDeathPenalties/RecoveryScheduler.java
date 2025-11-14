@@ -46,6 +46,7 @@ public class RecoveryScheduler {
         // This is handled in SoulPointsManager.processRecovery()
         for (Player player : Bukkit.getOnlinePlayers()) {
             soulPointsManager.processRecovery(player.getUniqueId());
+            soulPointsManager.processMaxSoulPointsRecovery(player.getUniqueId());
         }
         
         // For offline players, recovery will be processed when they join
@@ -57,23 +58,40 @@ public class RecoveryScheduler {
             UUID playerId = player.getUniqueId();
             soulPointsManager.startSession(playerId);
             int oldSoulPoints = soulPointsManager.getSoulPoints(playerId);
+            int oldMaxSoulPoints = soulPointsManager.getMaxSoulPoints(playerId);
             
             soulPointsManager.processRecovery(playerId);
+            soulPointsManager.processMaxSoulPointsRecovery(playerId);
             
             int newSoulPoints = soulPointsManager.getSoulPoints(playerId);
+            int newMaxSoulPoints = soulPointsManager.getMaxSoulPoints(playerId);
+            
+            org.yusaki.lib.modules.MessageManager messageManager = plugin.getMessageManager();
             
             // Notify player if they gained soul points
             if (newSoulPoints > oldSoulPoints) {
                 int recoveryCount = newSoulPoints - oldSoulPoints;
-                int maxSoulPoints = plugin.getConfig().getInt("soul-points.max", 10);
                 
                 plugin.getYskLib().logDebug(plugin, "Player " + player.getName() + " recovered " + recoveryCount + " soul point(s) via active-time mode");
-                org.yusaki.lib.modules.MessageManager messageManager = plugin.getMessageManager();
                 messageManager.sendMessageList(plugin, player, "recovery-gained", placeholders(
                     "count", String.valueOf(recoveryCount),
                     "plural", recoveryCount > 1 ? "s" : "",
                     "current_points", String.valueOf(newSoulPoints),
-                    "max_points", String.valueOf(maxSoulPoints)
+                    "max_points", String.valueOf(newMaxSoulPoints)
+                ));
+            }
+            
+            // Notify player if they gained max soul points
+            if (newMaxSoulPoints > oldMaxSoulPoints) {
+                int maxRecoveryCount = newMaxSoulPoints - oldMaxSoulPoints;
+                int configMax = plugin.getConfig().getInt("soul-points.max", 10);
+                
+                plugin.getYskLib().logDebug(plugin, "Player " + player.getName() + " recovered " + maxRecoveryCount + " max soul point(s) via active-time mode");
+                messageManager.sendMessageList(plugin, player, "max-soul-points-recovery-gained", placeholders(
+                    "count", String.valueOf(maxRecoveryCount),
+                    "plural", maxRecoveryCount > 1 ? "s" : "",
+                    "current_max", String.valueOf(newMaxSoulPoints),
+                    "config_max", String.valueOf(configMax)
                 ));
             }
         }
@@ -92,6 +110,7 @@ public class RecoveryScheduler {
             // Process any recovery that should have happened while offline
             plugin.getYskLib().logDebug(plugin, "Processing offline recovery for " + playerName);
             soulPointsManager.processRecovery(playerId);
+            soulPointsManager.processMaxSoulPointsRecovery(playerId);
         } else if (recoveryMode.equals("active-time")) {
             soulPointsManager.startSession(playerId);
             int oldSoulPoints = soulPointsManager.getSoulPoints(playerId);

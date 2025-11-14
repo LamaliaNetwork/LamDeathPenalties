@@ -30,7 +30,7 @@ public class SoulPointsManager {
     private final LamDeathPenalties plugin;
     private final Gson gson;
     private final File dataFile;
-    private Map<UUID, PlayerSoulData> playerData;
+    Map<UUID, PlayerSoulData> playerData;  // Package-private for SoulPointsCommand access
     
     public SoulPointsManager(LamDeathPenalties plugin) {
         this.plugin = plugin;
@@ -58,11 +58,81 @@ public class SoulPointsManager {
         return data.soulPoints;
     }
     
+    public int getMaxSoulPoints(UUID playerId) {
+        if (!plugin.isSoulPointsEnabled()) {
+            return plugin.getConfig().getInt("soul-points.max", 10);
+        }
+        PlayerSoulData data = playerData.get(playerId);
+        if (data == null) {
+            // New player, initialize data first
+            getSoulPoints(playerId);
+            data = playerData.get(playerId);
+        }
+        
+        // If max soul points is -1, use config default
+        if (data.maxSoulPoints < 0) {
+            return plugin.getConfig().getInt("soul-points.max", 10);
+        }
+        return data.maxSoulPoints;
+    }
+    
+    public void setMaxSoulPoints(UUID playerId, int maxPoints) {
+        if (!plugin.isSoulPointsEnabled()) {
+            return;
+        }
+        int configMax = plugin.getConfig().getInt("soul-points.max", 10);
+        int clampedMax = Math.max(0, Math.min(maxPoints, configMax));
+        
+        PlayerSoulData data = playerData.get(playerId);
+        if (data == null) {
+            getSoulPoints(playerId);  // Initialize player data
+            data = playerData.get(playerId);
+        }
+        
+        int oldMax = getMaxSoulPoints(playerId);
+        data.maxSoulPoints = clampedMax;
+        
+        // If current soul points exceed new max, reduce them
+        if (data.soulPoints > clampedMax) {
+            data.soulPoints = clampedMax;
+            refreshPlayerMaxHealth(playerId);
+        }
+        
+        savePlayerData();
+        plugin.getYskLib().logDebug(plugin, "Max soul points for " + playerId + " changed: " + oldMax + " -> " + clampedMax);
+    }
+    
+    public void reduceMaxSoulPoints(UUID playerId, int amount) {
+        if (!plugin.isSoulPointsEnabled()) {
+            return;
+        }
+        if (!plugin.getConfig().getBoolean("soul-points.max-soul-points.enabled", true)) {
+            return;
+        }
+        
+        int currentMax = getMaxSoulPoints(playerId);
+        int minimumMax = Math.max(0, plugin.getConfig().getInt("soul-points.max-soul-points.minimum", 0)); // Cap at 0
+        int newMax = Math.max(minimumMax, currentMax - amount);
+        
+        if (newMax != currentMax) {
+            setMaxSoulPoints(playerId, newMax);
+            plugin.getYskLib().logDebug(plugin, "Reduced max soul points for " + playerId + ": " + currentMax + " -> " + newMax);
+        }
+    }
+    
+    public void addMaxSoulPoints(UUID playerId, int amount) {
+        if (!plugin.isSoulPointsEnabled()) {
+            return;
+        }
+        int currentMax = getMaxSoulPoints(playerId);
+        setMaxSoulPoints(playerId, currentMax + amount);
+    }
+    
     public void setSoulPoints(UUID playerId, int points) {
         if (!plugin.isSoulPointsEnabled()) {
             return;
         }
-        int maxPoints = plugin.getConfig().getInt("soul-points.max", 10);
+        int maxPoints = getMaxSoulPoints(playerId);  // Use player's personal max, not config max
         int oldPoints = playerData.containsKey(playerId) ? playerData.get(playerId).soulPoints : 0;
         points = Math.max(0, Math.min(points, maxPoints));
 
@@ -460,9 +530,6 @@ public class SoulPointsManager {
         if (!plugin.isSoulPointsEnabled()) {
             return;
         }
-        if (!"active-time".equals(plugin.getRecoveryMode())) {
-            return;
-        }
         PlayerSoulData data = playerData.get(playerId);
         if (data == null) {
             int startingPoints = plugin.getConfig().getInt("soul-points.starting", 10);
@@ -470,9 +537,18 @@ public class SoulPointsManager {
             playerData.put(playerId, data);
         }
 
-        if (data.sessionStartTime == 0L) {
+        // Start regular soul points session
+        if ("active-time".equals(plugin.getRecoveryMode()) && data.sessionStartTime == 0L) {
             data.sessionStartTime = System.currentTimeMillis();
             plugin.getYskLib().logDebug(plugin, "Started active-time session for " + playerId);
+            savePlayerData();
+        }
+        
+        // Start max soul points session
+        String maxRecoveryMode = plugin.getConfig().getString("soul-points.max-soul-points.regeneration.mode", "real-time");
+        if ("active-time".equals(maxRecoveryMode) && data.maxSessionStartTime == 0L) {
+            data.maxSessionStartTime = System.currentTimeMillis();
+            plugin.getYskLib().logDebug(plugin, "Started active-time max soul points session for " + playerId);
             savePlayerData();
         }
     }
@@ -481,19 +557,29 @@ public class SoulPointsManager {
         if (!plugin.isSoulPointsEnabled()) {
             return;
         }
-        if (!"active-time".equals(plugin.getRecoveryMode())) {
-            return;
-        }
         PlayerSoulData data = playerData.get(playerId);
-        if (data == null || data.sessionStartTime == 0L) {
+        if (data == null) {
             return;
         }
 
-        long sessionDuration = Math.max(0L, System.currentTimeMillis() - data.sessionStartTime);
-        data.totalPlayTime += sessionDuration;
-        data.sessionStartTime = 0L;
+        // End regular soul points session
+        if ("active-time".equals(plugin.getRecoveryMode()) && data.sessionStartTime != 0L) {
+            long sessionDuration = Math.max(0L, System.currentTimeMillis() - data.sessionStartTime);
+            data.totalPlayTime += sessionDuration;
+            data.sessionStartTime = 0L;
+            plugin.getYskLib().logDebug(plugin, "Ended active-time session for " + playerId + " (+" + (sessionDuration / 1000L) + "s)");
+        }
+        
+        // End max soul points session
+        String maxRecoveryMode = plugin.getConfig().getString("soul-points.max-soul-points.regeneration.mode", "real-time");
+        if ("active-time".equals(maxRecoveryMode) && data.maxSessionStartTime != 0L) {
+            long maxSessionDuration = Math.max(0L, System.currentTimeMillis() - data.maxSessionStartTime);
+            data.totalMaxPlayTime += maxSessionDuration;
+            data.maxSessionStartTime = 0L;
+            plugin.getYskLib().logDebug(plugin, "Ended active-time max soul points session for " + playerId + " (+" + (maxSessionDuration / 1000L) + "s)");
+        }
+        
         savePlayerData();
-        plugin.getYskLib().logDebug(plugin, "Ended active-time session for " + playerId + " (+" + (sessionDuration / 1000L) + "s)");
     }
 
     public void updatePlayTime(UUID playerId, long sessionTime) {
@@ -521,7 +607,7 @@ public class SoulPointsManager {
         long intervalSeconds = plugin.getRecoveryIntervalSeconds();
         long intervalMs = intervalSeconds * 1000L;
         
-        int maxPoints = plugin.getConfig().getInt("soul-points.max", 10);
+        int maxPoints = getMaxSoulPoints(playerId);  // Use player's personal max
         if (data.soulPoints >= maxPoints) {
             return;
         }
@@ -569,6 +655,76 @@ public class SoulPointsManager {
             data.soulPoints = newPoints;
             data.lastRecoveryTime = currentTime;
             savePlayerData();
+        }
+    }
+    
+    public void processMaxSoulPointsRecovery(UUID playerId) {
+        if (!plugin.isSoulPointsEnabled()) {
+            return;
+        }
+        if (!plugin.getConfig().getBoolean("soul-points.max-soul-points.regeneration.enabled", true)) {
+            return;
+        }
+        
+        PlayerSoulData data = playerData.get(playerId);
+        if (data == null) return;
+        
+        int currentMax = getMaxSoulPoints(playerId);
+        int configMax = plugin.getConfig().getInt("soul-points.max", 10);
+        
+        // If already at config max, no need to recover
+        if (currentMax >= configMax) {
+            return;
+        }
+        
+        String maxRecoveryMode = plugin.getConfig().getString("soul-points.max-soul-points.regeneration.mode", "real-time");
+        long intervalSeconds = plugin.getConfig().getLong("soul-points.max-soul-points.regeneration.interval-seconds", 86400L);
+        long intervalMs = intervalSeconds * 1000L;
+        
+        if (maxRecoveryMode.equals("active-time")) {
+            long currentTime = System.currentTimeMillis();
+            long accumulatedPlayTime = data.totalMaxPlayTime;
+            
+            if (data.maxSessionStartTime > 0L) {
+                accumulatedPlayTime += Math.max(0L, currentTime - data.maxSessionStartTime);
+            }
+
+            long availableIntervals = accumulatedPlayTime / intervalMs;
+            if (availableIntervals <= 0) {
+                return;
+            }
+
+            int missingMax = Math.max(0, configMax - currentMax);
+            int recoveries = (int) Math.min(availableIntervals, missingMax);
+            if (recoveries <= 0) {
+                return;
+            }
+
+            long timeConsumed = recoveries * intervalMs;
+            long newRemainder = accumulatedPlayTime - timeConsumed;
+
+            setMaxSoulPoints(playerId, currentMax + recoveries);
+            data.totalMaxPlayTime = newRemainder;
+            if (data.maxSessionStartTime > 0L) {
+                data.maxSessionStartTime = currentTime;
+            }
+
+            savePlayerData();
+            plugin.getYskLib().logDebug(plugin, "Active-time max soul points recovery for " + playerId + ": +" + recoveries + " max point(s)");
+            return;
+        }
+        
+        // Real-time recovery
+        long currentTime = System.currentTimeMillis();
+        long timeSinceLastRecovery = currentTime - data.lastMaxRecoveryTime;
+        
+        if (timeSinceLastRecovery >= intervalMs) {
+            int recoveryCount = (int) (timeSinceLastRecovery / intervalMs);
+            int newMax = Math.min(configMax, currentMax + recoveryCount);
+            setMaxSoulPoints(playerId, newMax);
+            data.lastMaxRecoveryTime = currentTime;
+            savePlayerData();
+            plugin.getYskLib().logDebug(plugin, "Real-time max soul points recovery for " + playerId + ": +" + (newMax - currentMax) + " max point(s)");
         }
     }
     
@@ -783,12 +939,20 @@ public class SoulPointsManager {
         public long lastRecoveryTime;
         public long totalPlayTime;
         public long sessionStartTime;
+        public int maxSoulPoints;  // Player's current maximum soul points
+        public long lastMaxRecoveryTime;  // Last time max soul points were recovered
+        public long totalMaxPlayTime;  // Total play time for max soul points recovery (active-time mode)
+        public long maxSessionStartTime;  // Session start time for max soul points recovery (active-time mode)
         
         public PlayerSoulData(int soulPoints, long lastRecoveryTime, long totalPlayTime) {
             this.soulPoints = soulPoints;
             this.lastRecoveryTime = lastRecoveryTime;
             this.totalPlayTime = totalPlayTime;
             this.sessionStartTime = 0L;
+            this.maxSoulPoints = -1;  // -1 means use config default
+            this.lastMaxRecoveryTime = System.currentTimeMillis();
+            this.totalMaxPlayTime = 0L;
+            this.maxSessionStartTime = 0L;
         }
     }
     

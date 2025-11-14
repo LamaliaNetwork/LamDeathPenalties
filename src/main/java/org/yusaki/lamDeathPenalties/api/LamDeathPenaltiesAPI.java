@@ -95,10 +95,100 @@ public interface LamDeathPenaltiesAPI {
     DropRates getPlayerDropRates(Player player);
     
     /**
-     * Get the maximum soul points value
-     * @return Maximum soul points (default 10)
+     * Get the maximum soul points value from config
+     * @return Server's configured maximum soul points (default 10)
      */
-    int getMaxSoulPoints();
+    int getConfigMaxSoulPoints();
+    
+    /**
+     * Get a player's personal maximum soul points
+     * @param playerId The player's UUID
+     * @return Player's current max soul points capacity
+     */
+    int getMaxSoulPoints(UUID playerId);
+    
+    /**
+     * Get a player's personal maximum soul points
+     * @param player The player
+     * @return Player's current max soul points capacity
+     */
+    int getMaxSoulPoints(Player player);
+    
+    /**
+     * Set a player's personal maximum soul points
+     * @param playerId The player's UUID
+     * @param maxPoints New max soul points (will be clamped to 0-config max)
+     * @return True if successful, false if player not found
+     */
+    boolean setMaxSoulPoints(UUID playerId, int maxPoints);
+    
+    /**
+     * Set a player's personal maximum soul points
+     * @param player The player
+     * @param maxPoints New max soul points (will be clamped to 0-config max)
+     * @return True if successful
+     */
+    boolean setMaxSoulPoints(Player player, int maxPoints);
+    
+    /**
+     * Reduce a player's maximum soul points (e.g., from PvP kills)
+     * @param playerId The player's UUID
+     * @param amount Amount to reduce (respects configured minimum)
+     * @return True if successful, false if player not found
+     */
+    boolean reduceMaxSoulPoints(UUID playerId, int amount);
+    
+    /**
+     * Reduce a player's maximum soul points (e.g., from PvP kills)
+     * @param player The player
+     * @param amount Amount to reduce (respects configured minimum)
+     * @return True if successful
+     */
+    boolean reduceMaxSoulPoints(Player player, int amount);
+    
+    /**
+     * Add to a player's maximum soul points
+     * @param playerId The player's UUID
+     * @param amount Amount to add (capped at config max)
+     * @return True if successful, false if player not found
+     */
+    boolean addMaxSoulPoints(UUID playerId, int amount);
+    
+    /**
+     * Add to a player's maximum soul points
+     * @param player The player
+     * @param amount Amount to add (capped at config max)
+     * @return True if successful
+     */
+    boolean addMaxSoulPoints(Player player, int amount);
+    
+    /**
+     * Get time until next max soul points recovery in milliseconds
+     * @param playerId The player's UUID
+     * @return Time until next max recovery in milliseconds, 0 if already at config max
+     */
+    long getTimeUntilNextMaxRecovery(UUID playerId);
+    
+    /**
+     * Get time until next max soul points recovery in milliseconds
+     * @param player The player
+     * @return Time until next max recovery in milliseconds, 0 if already at config max
+     */
+    long getTimeUntilNextMaxRecovery(Player player);
+    
+    /**
+     * Manually trigger max soul points recovery processing for a player
+     * @param playerId The player's UUID
+     * @return True if recovery was processed, false if no recovery was due
+     */
+    boolean processMaxRecovery(UUID playerId);
+    
+    /**
+     * Manually trigger max soul points recovery processing for a player
+     * @param player The player
+     * @return True if recovery was processed, false if no recovery was due
+     */
+    boolean processMaxRecovery(Player player);
 
     /**
      * Check whether the soul points system is currently enabled

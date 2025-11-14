@@ -276,7 +276,8 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
     private void showSoulPoints(CommandSender sender, Player target) {
         org.yusaki.lib.modules.MessageManager messageManager = plugin.getMessageManager();
         int currentPoints = soulPointsManager.getSoulPoints(target.getUniqueId());
-        int maxPoints = plugin.getConfig().getInt("soul-points.max", 10);
+        int maxPoints = soulPointsManager.getMaxSoulPoints(target.getUniqueId());
+        int configMax = plugin.getConfig().getInt("soul-points.max", 10);
 
         // Get drop rates for current soul points
         SoulPointsManager.DropRates dropRates = soulPointsManager.getDropRates(currentPoints);
@@ -284,6 +285,10 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
         // Get time until next recovery
         long timeUntilRecovery = recoveryScheduler.getTimeUntilNextRecovery(target.getUniqueId());
         String recoveryTime = formatTime(timeUntilRecovery);
+        
+        // Get time until next max soul points recovery
+        long timeUntilMaxRecovery = getTimeUntilNextMaxRecovery(target.getUniqueId());
+        String maxRecoveryTime = formatTime(timeUntilMaxRecovery);
 
         // Create progress bar
         String progressBar = createProgressBar(currentPoints, maxPoints);
@@ -293,13 +298,56 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
             "progress_bar", progressBar,
             "current_points", String.valueOf(currentPoints),
             "max_points", String.valueOf(maxPoints),
+            "config_max", String.valueOf(configMax),
             "item_drop", String.valueOf(dropRates.itemDrop),
             "hotbar_drop", dropRates.hotbarDrop ? messageManager.getMessage(plugin, "yes") : messageManager.getMessage(plugin, "no"),
             "armor_drop", dropRates.armorDrop ? messageManager.getMessage(plugin, "yes") : messageManager.getMessage(plugin, "no"),
             "money_drop", formatMoneyDrop(dropRates),
             "max_health_drop", formatMaxHealthDrop(dropRates),
-            "recovery_time", recoveryTime
+            "recovery_time", recoveryTime,
+            "max_recovery_time", maxRecoveryTime
         ));
+    }
+    
+    private long getTimeUntilNextMaxRecovery(UUID playerId) {
+        if (!plugin.isSoulPointsEnabled()) {
+            return 0;
+        }
+        if (!plugin.getConfig().getBoolean("soul-points.max-soul-points.regeneration.enabled", true)) {
+            return 0;
+        }
+        
+        int currentMax = soulPointsManager.getMaxSoulPoints(playerId);
+        int configMax = plugin.getConfig().getInt("soul-points.max", 10);
+        
+        // If already at config max, no recovery needed
+        if (currentMax >= configMax) {
+            return 0;
+        }
+        
+        SoulPointsManager.PlayerSoulData data = soulPointsManager.playerData.get(playerId);
+        if (data == null) {
+            return 0;
+        }
+        
+        String maxRecoveryMode = plugin.getConfig().getString("soul-points.max-soul-points.regeneration.mode", "real-time");
+        long intervalSeconds = plugin.getConfig().getLong("soul-points.max-soul-points.regeneration.interval-seconds", 86400L);
+        long intervalMs = intervalSeconds * 1000L;
+        
+        if (maxRecoveryMode.equals("active-time")) {
+            long currentTime = System.currentTimeMillis();
+            long accumulatedPlayTime = data.totalMaxPlayTime;
+            if (data.maxSessionStartTime > 0L) {
+                accumulatedPlayTime += Math.max(0L, currentTime - data.maxSessionStartTime);
+            }
+            
+            long remainder = intervalMs - (accumulatedPlayTime % intervalMs);
+            return remainder == intervalMs ? 0 : remainder;
+        }
+        
+        // Real-time recovery
+        long timeSinceLastRecovery = System.currentTimeMillis() - data.lastMaxRecoveryTime;
+        return Math.max(0, intervalMs - timeSinceLastRecovery);
     }
     
     private String createProgressBar(int current, int max) {

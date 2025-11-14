@@ -138,8 +138,134 @@ public class LamDeathPenaltiesAPIImpl implements LamDeathPenaltiesAPI {
     }
 
     @Override
-    public int getMaxSoulPoints() {
+    public int getConfigMaxSoulPoints() {
         return plugin.getConfig().getInt("soul-points.max", 10);
+    }
+    
+    @Override
+    public int getMaxSoulPoints(UUID playerId) {
+        return soulPointsManager.getMaxSoulPoints(playerId);
+    }
+    
+    @Override
+    public int getMaxSoulPoints(Player player) {
+        return getMaxSoulPoints(player.getUniqueId());
+    }
+    
+    @Override
+    public boolean setMaxSoulPoints(UUID playerId, int maxPoints) {
+        if (!plugin.isSoulPointsEnabled()) {
+            return false;
+        }
+        Player player = Bukkit.getPlayer(playerId);
+        if (player == null) return false;
+        
+        soulPointsManager.setMaxSoulPoints(playerId, maxPoints);
+        return true;
+    }
+    
+    @Override
+    public boolean setMaxSoulPoints(Player player, int maxPoints) {
+        return setMaxSoulPoints(player.getUniqueId(), maxPoints);
+    }
+    
+    @Override
+    public boolean reduceMaxSoulPoints(UUID playerId, int amount) {
+        if (!plugin.isSoulPointsEnabled()) {
+            return false;
+        }
+        Player player = Bukkit.getPlayer(playerId);
+        if (player == null) return false;
+        
+        soulPointsManager.reduceMaxSoulPoints(playerId, amount);
+        return true;
+    }
+    
+    @Override
+    public boolean reduceMaxSoulPoints(Player player, int amount) {
+        return reduceMaxSoulPoints(player.getUniqueId(), amount);
+    }
+    
+    @Override
+    public boolean addMaxSoulPoints(UUID playerId, int amount) {
+        if (!plugin.isSoulPointsEnabled()) {
+            return false;
+        }
+        Player player = Bukkit.getPlayer(playerId);
+        if (player == null) return false;
+        
+        soulPointsManager.addMaxSoulPoints(playerId, amount);
+        return true;
+    }
+    
+    @Override
+    public boolean addMaxSoulPoints(Player player, int amount) {
+        return addMaxSoulPoints(player.getUniqueId(), amount);
+    }
+    
+    @Override
+    public long getTimeUntilNextMaxRecovery(UUID playerId) {
+        if (!plugin.isSoulPointsEnabled()) {
+            return 0;
+        }
+        if (!plugin.getConfig().getBoolean("soul-points.max-soul-points.regeneration.enabled", true)) {
+            return 0;
+        }
+        
+        int currentMax = soulPointsManager.getMaxSoulPoints(playerId);
+        int configMax = plugin.getConfig().getInt("soul-points.max", 10);
+        
+        if (currentMax >= configMax) {
+            return 0;
+        }
+        
+        SoulPointsManager.PlayerSoulData data = soulPointsManager.playerData.get(playerId);
+        if (data == null) {
+            return 0;
+        }
+        
+        String maxRecoveryMode = plugin.getConfig().getString("soul-points.max-soul-points.regeneration.mode", "real-time");
+        long intervalSeconds = plugin.getConfig().getLong("soul-points.max-soul-points.regeneration.interval-seconds", 86400L);
+        long intervalMs = intervalSeconds * 1000L;
+        
+        if (maxRecoveryMode.equals("active-time")) {
+            long currentTime = System.currentTimeMillis();
+            long accumulatedPlayTime = data.totalMaxPlayTime;
+            if (data.maxSessionStartTime > 0L) {
+                accumulatedPlayTime += Math.max(0L, currentTime - data.maxSessionStartTime);
+            }
+            
+            long remainder = intervalMs - (accumulatedPlayTime % intervalMs);
+            return remainder == intervalMs ? 0 : remainder;
+        }
+        
+        long timeSinceLastRecovery = System.currentTimeMillis() - data.lastMaxRecoveryTime;
+        return Math.max(0, intervalMs - timeSinceLastRecovery);
+    }
+    
+    @Override
+    public long getTimeUntilNextMaxRecovery(Player player) {
+        return getTimeUntilNextMaxRecovery(player.getUniqueId());
+    }
+    
+    @Override
+    public boolean processMaxRecovery(UUID playerId) {
+        if (!plugin.isSoulPointsEnabled()) {
+            return false;
+        }
+        Player player = Bukkit.getPlayer(playerId);
+        if (player == null) return false;
+        
+        int oldMax = soulPointsManager.getMaxSoulPoints(playerId);
+        soulPointsManager.processMaxSoulPointsRecovery(playerId);
+        int newMax = soulPointsManager.getMaxSoulPoints(playerId);
+        
+        return oldMax != newMax;
+    }
+    
+    @Override
+    public boolean processMaxRecovery(Player player) {
+        return processMaxRecovery(player.getUniqueId());
     }
 
     @Override
