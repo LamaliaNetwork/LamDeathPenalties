@@ -42,7 +42,7 @@ public class LamDeathPenaltiesAPIImpl implements LamDeathPenaltiesAPI {
         if (player == null) return false;
 
         int oldPoints = soulPointsManager.getSoulPoints(playerId);
-        int clampedPoints = Math.max(0, Math.min(points, getMaxSoulPoints()));
+        int clampedPoints = Math.max(0, Math.min(points, getMaxSoulPoints(playerId)));
         
         // Fire pre-change event
         SoulPointsChangeEvent changeEvent = new SoulPointsChangeEvent(
@@ -80,7 +80,7 @@ public class LamDeathPenaltiesAPIImpl implements LamDeathPenaltiesAPI {
         if (player == null) return false;
 
         int oldPoints = soulPointsManager.getSoulPoints(playerId);
-        int newPoints = Math.max(0, Math.min(oldPoints + points, getMaxSoulPoints()));
+        int newPoints = Math.max(0, Math.min(oldPoints + points, getMaxSoulPoints(playerId)));
         
         // Fire pre-change event
         SoulPointsChangeEvent changeEvent = new SoulPointsChangeEvent(
@@ -219,7 +219,7 @@ public class LamDeathPenaltiesAPIImpl implements LamDeathPenaltiesAPI {
             return 0;
         }
         
-        SoulPointsManager.PlayerSoulData data = soulPointsManager.playerData.get(playerId);
+        SoulPointsManager.PlayerSoulData data = soulPointsManager.getPlayerSoulData(playerId);
         if (data == null) {
             return 0;
         }

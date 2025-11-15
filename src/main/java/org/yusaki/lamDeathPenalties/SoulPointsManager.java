@@ -167,6 +167,15 @@ public class SoulPointsManager {
         int current = getSoulPoints(playerId);
         setSoulPoints(playerId, current - points);
     }
+    
+    /**
+     * Gets player soul data for API access
+     * @param playerId Player UUID
+     * @return PlayerSoulData or null if not found
+     */
+    public PlayerSoulData getPlayerSoulData(UUID playerId) {
+        return playerData.get(playerId);
+    }
 
     public void removeSoulPoint(UUID playerId) {
         removeSoulPointWithReason(playerId, SoulPointsChangeEvent.ChangeReason.DEATH);
@@ -656,6 +665,24 @@ public class SoulPointsManager {
             data.lastRecoveryTime = currentTime;
             savePlayerData();
         }
+    }
+    
+    public void resetRecoveryTimers(UUID playerId) {
+        PlayerSoulData data = playerData.get(playerId);
+        if (data == null) {
+            return;
+        }
+        
+        long currentTime = System.currentTimeMillis();
+        data.lastRecoveryTime = currentTime;
+        data.lastMaxRecoveryTime = currentTime;
+        data.totalPlayTime = 0L;
+        data.totalMaxPlayTime = 0L;
+        data.sessionStartTime = 0L;
+        data.maxSessionStartTime = 0L;
+        
+        savePlayerData();
+        plugin.getYskLib().logDebug(plugin, "Reset recovery timers for " + playerId);
     }
     
     public void processMaxSoulPointsRecovery(UUID playerId) {

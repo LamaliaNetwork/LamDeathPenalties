@@ -4,6 +4,7 @@ import com.tcoded.folialib.FoliaLib;
 import net.milkbowl.vault.economy.Economy;
 import net.milkbowl.vault.economy.EconomyResponse;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.Player;
@@ -188,6 +189,9 @@ public class DeathListener implements Listener {
         // Mark that we processed this death
         player.setMetadata(METADATA_PROCESSED, new FixedMetadataValue(plugin, true));
 
+        // Detect killer for money transfer
+        Player killer = getKiller(player);
+
         // Get soul points before reduction
         int oldSoulPoints = soulPointsManager.getSoulPoints(player.getUniqueId());
 
@@ -210,17 +214,25 @@ public class DeathListener implements Listener {
         plugin.getYskLib().logDebug(plugin, "Dropped " + dropResult.itemsDropped + "/" + dropResult.totalItems + " items for " + player.getName());
 
         SoulPointsManager.MaxHealthPenaltyResult maxHealthResult = soulPointsManager.applyMaxHealthPenalty(player, dropRates);
-        MoneyPenaltyResult moneyResult = applyMoneyPenalty(player, dropRates);
+        MoneyPenaltyResult moneyResult = applyMoneyPenalty(player, dropRates, killer);
 
         plugin.getYskLib().logDebug(plugin, "Max health change applied: " + formatHearts(maxHealthResult.deltaHearts) + " for " + player.getName());
         if (moneyResult.amountLost > 0.0D) {
             plugin.getYskLib().logDebug(plugin, "Money penalty applied: " + moneyResult.amountLost + " for " + player.getName());
+            if (killer != null && moneyResult.transferredToKiller > 0.0D) {
+                plugin.getYskLib().logDebug(plugin, "Money transferred to killer " + killer.getName() + ": " + moneyResult.transferredToKiller);
+            }
         }
         
         // Experience always drops (default Minecraft behavior)
         // Send death notification with delay using Folia-compatible scheduler
+        final Player finalKiller = killer;
         foliaLib.getImpl().runAtEntityLater(player, task -> {
             sendDeathNotification(player, oldSoulPoints, currentSoulPoints, dropResult, moneyResult, maxHealthResult);
+            // Notify killer if they received money
+            if (finalKiller != null && moneyResult.transferredToKiller > 0.0D) {
+                sendKillerMoneyNotification(finalKiller, player, moneyResult.transferredToKiller);
+            }
         }, 40L); // 2 second delay after death
     }
     
@@ -570,7 +582,7 @@ public class DeathListener implements Listener {
         }
     }
 
-    private MoneyPenaltyResult applyMoneyPenalty(Player player, SoulPointsManager.DropRates dropRates) {
+    private MoneyPenaltyResult applyMoneyPenalty(Player player, SoulPointsManager.DropRates dropRates, Player killer) {
         if (player == null || dropRates == null || dropRates.moneyPenalty <= 0.0D) {
             return MoneyPenaltyResult.empty();
         }
@@ -598,12 +610,28 @@ public class DeathListener implements Listener {
 
         double withdrawn = 0.0D;
         double remaining = initialBalance;
+        double transferredToKiller = 0.0D;
 
         if (amountToWithdraw > 0.0D) {
             EconomyResponse response = economy.withdrawPlayer(player, amountToWithdraw);
             if (response.transactionSuccess()) {
                 withdrawn = response.amount;
                 remaining = Math.max(0.0D, response.balance);
+                
+                // Transfer money to killer if enabled
+                if (killer != null && plugin.getConfig().getBoolean("money-transfer.enabled", true)) {
+                    double transferPercent = plugin.getConfig().getDouble("money-transfer.transfer-percent", 100.0);
+                    double amountToTransfer = withdrawn * (transferPercent / 100.0D);
+                    
+                    if (amountToTransfer > 0.0D) {
+                        EconomyResponse depositResponse = economy.depositPlayer(killer, amountToTransfer);
+                        if (depositResponse.transactionSuccess()) {
+                            transferredToKiller = depositResponse.amount;
+                        } else {
+                            plugin.getLogger().warning("Failed to deposit money to killer " + killer.getName() + ": " + depositResponse.errorMessage);
+                        }
+                    }
+                }
             } else {
                 plugin.getLogger().warning("Failed to withdraw money penalty for " + player.getName() + ": " + response.errorMessage);
                 remaining = economy.getBalance(player);
@@ -612,7 +640,7 @@ public class DeathListener implements Listener {
 
         boolean depleted = remaining <= BALANCE_EPSILON || (amountToWithdraw <= 0.0D && initialBalance <= BALANCE_EPSILON);
 
-        return new MoneyPenaltyResult(withdrawn, remaining, depleted);
+        return new MoneyPenaltyResult(withdrawn, remaining, depleted, transferredToKiller);
     }
 
     private String formatCurrency(double amount) {
@@ -668,6 +696,44 @@ public class DeathListener implements Listener {
         return builder.toString();
     }
     
+    /**
+     * Gets the killer of a player, if they were killed by another player
+     */
+    private Player getKiller(Player victim) {
+        EntityDamageEvent lastDamageCause = victim.getLastDamageCause();
+        if (!(lastDamageCause instanceof EntityDamageByEntityEvent damageByEntityEvent)) {
+            return null;
+        }
+        
+        // Get the killer (could be direct player or projectile shooter)
+        Player killer = null;
+        if (damageByEntityEvent.getDamager() instanceof Player) {
+            killer = (Player) damageByEntityEvent.getDamager();
+        } else if (damageByEntityEvent.getDamager() instanceof org.bukkit.entity.Projectile projectile) {
+            if (projectile.getShooter() instanceof Player) {
+                killer = (Player) projectile.getShooter();
+            }
+        }
+        
+        // Don't count suicide as a kill
+        if (killer != null && killer.getUniqueId().equals(victim.getUniqueId())) {
+            return null;
+        }
+        
+        return killer;
+    }
+    
+    /**
+     * Sends notification to killer about money received
+     */
+    private void sendKillerMoneyNotification(Player killer, Player victim, double amount) {
+        org.yusaki.lib.modules.MessageManager messageManager = plugin.getMessageManager();
+        messageManager.sendMessageList(plugin, killer, "killer-money-received", placeholders(
+            "amount", formatCurrency(amount),
+            "victim", victim.getName()
+        ));
+    }
+    
     // Helper class to track item positions
     private static class ItemEntry {
         final ItemStack item;
@@ -713,15 +779,17 @@ public class DeathListener implements Listener {
         final double amountLost;
         final double remainingBalance;
         final boolean depleted;
+        final double transferredToKiller;
 
-        MoneyPenaltyResult(double amountLost, double remainingBalance, boolean depleted) {
+        MoneyPenaltyResult(double amountLost, double remainingBalance, boolean depleted, double transferredToKiller) {
             this.amountLost = amountLost;
             this.remainingBalance = remainingBalance;
             this.depleted = depleted;
+            this.transferredToKiller = transferredToKiller;
         }
 
         static MoneyPenaltyResult empty() {
-            return new MoneyPenaltyResult(0.0D, 0.0D, false);
+            return new MoneyPenaltyResult(0.0D, 0.0D, false, 0.0D);
         }
     }
 }

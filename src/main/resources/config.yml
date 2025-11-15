@@ -1,7 +1,7 @@
 # LamDeathPenalties Configuration
 
 # Config version - DO NOT EDIT (used for automatic updates)
-version: 0.4
+version: 0.7
 
 # Debug level - Controls logging verbosity
 # 0 = Errors only (critical issues)
@@ -9,6 +9,15 @@ version: 0.4
 # 2 = Info (general operation) - RECOMMENDED
 # 3 = Debug (detailed troubleshooting)
 debug: 2
+
+# Money transfer settings
+# When a player kills another player, money can be transferred from victim to killer
+money-transfer:
+  enabled: true           # Enable money transfer on player kill
+  transfer-percent: 100.0 # Percentage of lost money to transfer to killer (0-100)
+                          # 100 = killer gets all lost money
+                          # 50 = killer gets half, rest disappears
+                          # 0 = all money disappears (like natural death)
 
 # Soul point settings
 default-penalty:
@@ -189,9 +198,17 @@ messages:
     - ""
     - "&f/lmdp &7- Check your soul points"
     - "&f/lmdp check <player> &7- Check someone's soul points"
+    - ""
+    - "&7Regular Soul Points:"
     - "&f/lmdp set <player> <amount> &7- Set soul points"
     - "&f/lmdp give <player> <amount> &7- Give soul points"
     - "&f/lmdp take <player> <amount> &7- Take soul points"
+    - ""
+    - "&7Max Soul Points:"
+    - "&f/lmdp setmax <player> <amount> &7- Set max soul points"
+    - "&f/lmdp givemax <player> <amount> &7- Give max soul points"
+    - "&f/lmdp takemax <player> <amount> &7- Take max soul points"
+    - ""
     - "&f/lmdp reload &7- Reload config"
     - "&8&m                                                "
 
@@ -222,6 +239,24 @@ messages:
   take-success-sender: "&cTook {taken} soul points from {player} (now {new_points}/{max_points})"
   take-success-target: "&c✦ You lost {taken} soul point{plural}! Current: {new_points}/{max_points}"
 
+  # Set max command messages
+  setmax-usage: "&cUsage: /lmdp setmax <player> <amount>"
+  setmax-amount-positive: "&cAmount must be 0 or greater."
+  setmax-success-sender: "&aSet {player}'s max soul points to {amount} (config max: {config_max})"
+  setmax-success-target: "&a✦ Your max soul points have been set to {amount} (config max: {config_max})"
+
+  # Give max command messages
+  givemax-usage: "&cUsage: /lmdp givemax <player> <amount>"
+  givemax-amount-positive: "&cAmount must be positive."
+  givemax-success-sender: "&aGave {given} max soul points to {player} (now {new_max}, config max: {config_max})"
+  givemax-success-target: "&a✦ You received {given} max soul point{plural}! Current max: {new_max} (config max: {config_max})"
+
+  # Take max command messages
+  takemax-usage: "&cUsage: /lmdp takemax <player> <amount>"
+  takemax-amount-positive: "&cAmount must be positive."
+  takemax-success-sender: "&cTook {taken} max soul points from {player} (now {new_max}, config max: {config_max})"
+  takemax-success-target: "&c✦ You lost {taken} max soul point{plural}! Current max: {new_max} (config max: {config_max})"
+
   # Check command messages
   check-usage: "&cUsage: /lmdp check <player>"
 
@@ -229,8 +264,12 @@ messages:
   soul-points-changed-actionbar: "&6Soul Points: &f{current_points}&7/&f{max_points}"
   recovery-ready-actionbar: "&a✦ Soul point recovered! &f{current_points}&7/&f{max_points}"
 
+  # Money transfer messages
+  killer-money-received:
+    - "&a✦ You received {amount} from {victim}!"
+
   # Display values
-  yes: "Yes"
-  no: "No"
+  display-yes: "Yes"
+  display-no: "No"
   progress-bar-filled: "&a█"
   progress-bar-empty: "&7█"

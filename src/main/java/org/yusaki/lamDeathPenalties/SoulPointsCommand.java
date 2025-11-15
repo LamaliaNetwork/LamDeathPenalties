@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import static org.yusaki.lib.modules.MessageManager.placeholders;
 
@@ -62,6 +63,14 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
             case "take":
             case "remove":
                 return handleTakeCommand(sender, args);
+            case "setmax":
+                return handleSetMaxCommand(sender, args);
+            case "givemax":
+            case "addmax":
+                return handleGiveMaxCommand(sender, args);
+            case "takemax":
+            case "removemax":
+                return handleTakeMaxCommand(sender, args);
             case "check":
             case "view":
                 return handleCheckCommand(sender, args);
@@ -231,6 +240,182 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
         
         return true;
     }
+
+    private boolean handleSetMaxCommand(CommandSender sender, String[] args) {
+        org.yusaki.lib.modules.MessageManager messageManager = plugin.getMessageManager();
+
+        if (!sender.hasPermission("lmdp.admin")) {
+            messageManager.sendMessage(plugin, sender, "no-permission");
+            return true;
+        }
+
+        if (args.length < 3) {
+            messageManager.sendMessage(plugin, sender, "setmax-usage");
+            return true;
+        }
+
+        Player target = Bukkit.getPlayer(args[1]);
+        if (target == null) {
+            messageManager.sendMessage(plugin, sender, "player-not-found", placeholders("player", args[1]));
+            return true;
+        }
+
+        try {
+            int amount = Integer.parseInt(args[2]);
+            int configMax = plugin.getConfig().getInt("soul-points.max", 10);
+
+            if (amount < 0) {
+                messageManager.sendMessage(plugin, sender, "setmax-amount-positive");
+                return true;
+            }
+
+            int oldMax = soulPointsManager.getMaxSoulPoints(target.getUniqueId());
+            soulPointsManager.setMaxSoulPoints(target.getUniqueId(), amount);
+            int actualMax = soulPointsManager.getMaxSoulPoints(target.getUniqueId());
+            
+            // Reset recovery timers if max changed
+            if (oldMax != actualMax) {
+                soulPointsManager.resetRecoveryTimers(target.getUniqueId());
+            }
+
+            plugin.getYskLib().logDebug(plugin, sender.getName() + " set max soul points for " + target.getName() + " to " + actualMax);
+
+            messageManager.sendMessage(plugin, sender, "setmax-success-sender", placeholders(
+                "player", target.getName(),
+                "amount", String.valueOf(actualMax),
+                "config_max", String.valueOf(configMax)
+            ));
+            messageManager.sendMessage(plugin, target, "setmax-success-target", placeholders(
+                "amount", String.valueOf(actualMax),
+                "config_max", String.valueOf(configMax)
+            ));
+
+        } catch (NumberFormatException e) {
+            messageManager.sendMessage(plugin, sender, "invalid-number", placeholders("input", args[2]));
+        }
+
+        return true;
+    }
+
+    private boolean handleGiveMaxCommand(CommandSender sender, String[] args) {
+        org.yusaki.lib.modules.MessageManager messageManager = plugin.getMessageManager();
+
+        if (!sender.hasPermission("lmdp.admin")) {
+            messageManager.sendMessage(plugin, sender, "no-permission");
+            return true;
+        }
+
+        if (args.length < 3) {
+            messageManager.sendMessage(plugin, sender, "givemax-usage");
+            return true;
+        }
+
+        Player target = Bukkit.getPlayer(args[1]);
+        if (target == null) {
+            messageManager.sendMessage(plugin, sender, "player-not-found", placeholders("player", args[1]));
+            return true;
+        }
+
+        try {
+            int amount = Integer.parseInt(args[2]);
+            int currentMax = soulPointsManager.getMaxSoulPoints(target.getUniqueId());
+            int configMax = plugin.getConfig().getInt("soul-points.max", 10);
+
+            if (amount <= 0) {
+                messageManager.sendMessage(plugin, sender, "givemax-amount-positive");
+                return true;
+            }
+
+            soulPointsManager.addMaxSoulPoints(target.getUniqueId(), amount);
+            int newMax = soulPointsManager.getMaxSoulPoints(target.getUniqueId());
+            int actualGiven = newMax - currentMax;
+            
+            // Reset recovery timers if max changed
+            if (actualGiven > 0) {
+                soulPointsManager.resetRecoveryTimers(target.getUniqueId());
+            }
+
+            plugin.getYskLib().logDebug(plugin, sender.getName() + " gave " + actualGiven + " max soul points to " + target.getName());
+
+            messageManager.sendMessage(plugin, sender, "givemax-success-sender", placeholders(
+                "given", String.valueOf(actualGiven),
+                "player", target.getName(),
+                "new_max", String.valueOf(newMax),
+                "config_max", String.valueOf(configMax)
+            ));
+            messageManager.sendMessage(plugin, target, "givemax-success-target", placeholders(
+                "given", String.valueOf(actualGiven),
+                "plural", actualGiven != 1 ? "s" : "",
+                "new_max", String.valueOf(newMax),
+                "config_max", String.valueOf(configMax)
+            ));
+
+        } catch (NumberFormatException e) {
+            messageManager.sendMessage(plugin, sender, "invalid-number", placeholders("input", args[2]));
+        }
+
+        return true;
+    }
+
+    private boolean handleTakeMaxCommand(CommandSender sender, String[] args) {
+        org.yusaki.lib.modules.MessageManager messageManager = plugin.getMessageManager();
+
+        if (!sender.hasPermission("lmdp.admin")) {
+            messageManager.sendMessage(plugin, sender, "no-permission");
+            return true;
+        }
+
+        if (args.length < 3) {
+            messageManager.sendMessage(plugin, sender, "takemax-usage");
+            return true;
+        }
+
+        Player target = Bukkit.getPlayer(args[1]);
+        if (target == null) {
+            messageManager.sendMessage(plugin, sender, "player-not-found", placeholders("player", args[1]));
+            return true;
+        }
+
+        try {
+            int amount = Integer.parseInt(args[2]);
+            int currentMax = soulPointsManager.getMaxSoulPoints(target.getUniqueId());
+            int configMax = plugin.getConfig().getInt("soul-points.max", 10);
+
+            if (amount <= 0) {
+                messageManager.sendMessage(plugin, sender, "takemax-amount-positive");
+                return true;
+            }
+
+            soulPointsManager.reduceMaxSoulPoints(target.getUniqueId(), amount);
+            int newMax = soulPointsManager.getMaxSoulPoints(target.getUniqueId());
+            int actualTaken = currentMax - newMax;
+            
+            // Reset recovery timers if max changed
+            if (actualTaken > 0) {
+                soulPointsManager.resetRecoveryTimers(target.getUniqueId());
+            }
+
+            plugin.getYskLib().logDebug(plugin, sender.getName() + " took " + actualTaken + " max soul points from " + target.getName());
+
+            messageManager.sendMessage(plugin, sender, "takemax-success-sender", placeholders(
+                "taken", String.valueOf(actualTaken),
+                "player", target.getName(),
+                "new_max", String.valueOf(newMax),
+                "config_max", String.valueOf(configMax)
+            ));
+            messageManager.sendMessage(plugin, target, "takemax-success-target", placeholders(
+                "taken", String.valueOf(actualTaken),
+                "plural", actualTaken != 1 ? "s" : "",
+                "new_max", String.valueOf(newMax),
+                "config_max", String.valueOf(configMax)
+            ));
+
+        } catch (NumberFormatException e) {
+            messageManager.sendMessage(plugin, sender, "invalid-number", placeholders("input", args[2]));
+        }
+
+        return true;
+    }
     
     private boolean handleCheckCommand(CommandSender sender, String[] args) {
         org.yusaki.lib.modules.MessageManager messageManager = plugin.getMessageManager();
@@ -299,9 +484,9 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
             "current_points", String.valueOf(currentPoints),
             "max_points", String.valueOf(maxPoints),
             "config_max", String.valueOf(configMax),
-            "item_drop", String.valueOf(dropRates.itemDrop),
-            "hotbar_drop", dropRates.hotbarDrop ? messageManager.getMessage(plugin, "yes") : messageManager.getMessage(plugin, "no"),
-            "armor_drop", dropRates.armorDrop ? messageManager.getMessage(plugin, "yes") : messageManager.getMessage(plugin, "no"),
+            "item_drop", String.valueOf(dropRates != null ? dropRates.itemDrop : 0),
+            "hotbar_drop", formatBooleanDrop(dropRates != null && dropRates.hotbarDrop, messageManager),
+            "armor_drop", formatBooleanDrop(dropRates != null && dropRates.armorDrop, messageManager),
             "money_drop", formatMoneyDrop(dropRates),
             "max_health_drop", formatMaxHealthDrop(dropRates),
             "recovery_time", recoveryTime,
@@ -387,6 +572,10 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
         }
     }
 
+    private String formatBooleanDrop(boolean value, org.yusaki.lib.modules.MessageManager messageManager) {
+        return value ? messageManager.getMessage(plugin, "display-yes") : messageManager.getMessage(plugin, "display-no");
+    }
+
     private String formatMoneyDrop(SoulPointsManager.DropRates dropRates) {
         if (dropRates == null) {
             return "0";
@@ -439,7 +628,7 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
         if (args.length == 1) {
             List<String> subCommands = Arrays.asList("check");
             if (sender.hasPermission("lmdp.admin")) {
-                subCommands = Arrays.asList("set", "give", "take", "check", "reload");
+                subCommands = Arrays.asList("set", "give", "take", "setmax", "givemax", "takemax", "check", "reload");
             }
             
             for (String subCommand : subCommands) {
@@ -447,7 +636,7 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
                     completions.add(subCommand);
                 }
             }
-        } else if (args.length == 2 && (args[0].equalsIgnoreCase("set") || args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("take") || args[0].equalsIgnoreCase("check"))) {
+        } else if (args.length == 2 && (args[0].equalsIgnoreCase("set") || args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("take") || args[0].equalsIgnoreCase("setmax") || args[0].equalsIgnoreCase("givemax") || args[0].equalsIgnoreCase("takemax") || args[0].equalsIgnoreCase("check"))) {
             // Player name completion
             for (Player player : Bukkit.getOnlinePlayers()) {
                 if (player.getName().toLowerCase().startsWith(args[1].toLowerCase())) {
@@ -455,9 +644,15 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
                 }
             }
         } else if (args.length == 3 && (args[0].equalsIgnoreCase("set") || args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("take"))) {
-            // Number suggestions
+            // Number suggestions for regular soul points
             int maxPoints = plugin.getConfig().getInt("soul-points.max", 10);
             for (int i = 1; i <= maxPoints; i++) {
+                completions.add(String.valueOf(i));
+            }
+        } else if (args.length == 3 && (args[0].equalsIgnoreCase("setmax") || args[0].equalsIgnoreCase("givemax") || args[0].equalsIgnoreCase("takemax"))) {
+            // Number suggestions for max soul points
+            int configMax = plugin.getConfig().getInt("soul-points.max", 10);
+            for (int i = 1; i <= configMax; i++) {
                 completions.add(String.valueOf(i));
             }
         }

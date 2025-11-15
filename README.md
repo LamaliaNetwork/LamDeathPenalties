@@ -6,7 +6,7 @@ LamDeathPenalties adds a soul points system with progressive death penalties for
 * **Progressive penalties**: Penalties scale with soul points—low points mean more item drops, vulnerable hotbar/armor, money loss, and reduced max health.
 * **Flexible item drops**: Configure drop percentages per soul points level; protect hotbar and armor at higher levels, expose everything at zero.
 * **Max health penalties**: Remove hearts (REMOVE mode) or grant bonus hearts (ADD mode) based on soul points, with fallback inheritance between levels.
-* **Money integration**: Vault-based penalties with flat amounts or percentages; optional commands when funds are depleted.
+* **Money integration**: Vault-based penalties with flat amounts or percentages; money transfers to killer on PvP death, disappears on natural death.
 * **Level-based commands**: Trigger console commands (titles, sounds, kicks, etc.) when players reach specific soul points thresholds.
 * **Recovery modes**: Choose between real-time (wall-clock) or active-time (playtime-based) soul points recovery with configurable intervals.
 * **Fallback inheritance**: Penalties cascade upward through soul points levels—unset values inherit from the next higher tier automatically.
@@ -124,6 +124,22 @@ soul-points:
    recovery:
       mode: "real-time"       # Options: "real-time" or "active-time"
       interval-seconds: 3600  # 1 hour for real-time, 1 hour of playtime for active-time
+```
+
+### Money Transfer on PvP Death
+
+```yaml
+# Money transfer settings
+money-transfer:
+  enabled: true           # Enable money transfer when a player kills another player
+  transfer-percent: 100.0 # Percentage of lost money to transfer to killer (0-100)
+                          # 100 = killer gets all lost money
+                          # 50 = killer gets half, rest disappears
+                          # 0 = all money disappears (like natural death)
+
+# Example: Player with 5 soul points dies (loses 150 coins with flat mode)
+# - Killed by another player: killer receives 150 coins (if transfer-percent: 100)
+# - Natural death (lava, fall, mob): 150 coins disappear completely
 ```
 
 ## PlaceholderAPI Placeholders

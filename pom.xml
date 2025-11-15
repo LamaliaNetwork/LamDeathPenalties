@@ -6,7 +6,7 @@
 
     <groupId>org.yusaki</groupId>
     <artifactId>LamDeathPenalties</artifactId>
-    <version>0.5.6${build.number.formatted}</version>
+    <version>0.6.0${build.number.formatted}</version>
     <packaging>jar</packaging>
 
     <name>LamDeathPenalties</name>
