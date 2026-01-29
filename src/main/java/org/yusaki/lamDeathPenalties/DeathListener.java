@@ -183,12 +183,12 @@ public class DeathListener implements Listener {
             event.setKeepLevel(true);
             event.getDrops().clear();
             event.setDroppedExp(0);
-            
+
             // Mark as processed to signal AxGraves (and other grave plugins) not to create a grave
             // This prevents graves from being created for players with bypass permission
             player.setMetadata(METADATA_PROCESSED, new FixedMetadataValue(plugin, true));
             player.setMetadata(METADATA_KEY, new FixedMetadataValue(plugin, new ArrayList<ItemStack>())); // Empty list = no items to grave
-            
+
             // Schedule a task to ensure items stay in inventory even if graves plugin tries to take them
             foliaLib.getImpl().runAtEntityLater(player, task -> {
                 // Clean up metadata after a short delay (graves plugins should have processed by then)
@@ -197,17 +197,18 @@ public class DeathListener implements Listener {
                     player.removeMetadata(METADATA_PROCESSED, plugin);
                 }
             }, 5L); // 5 ticks = 0.25 seconds
-            
+
             plugin.getYskLib().logDebug(plugin, "Player " + player.getName() + " has bypass permission - keeping inventory (BYPASS ACTIVE)");
             return;
         }
 
         // Check if keepInventory is enabled - if so, skip all plugin logic
-        if (Boolean.parseBoolean(player.getWorld().getGameRuleValue("keepInventory"))) {
+        // Use event.getKeepInventory() which works across all Paper/Bukkit versions
+        if (event.getKeepInventory()) {
             // Also mark as processed for grave plugins
             player.setMetadata(METADATA_PROCESSED, new FixedMetadataValue(plugin, true));
             player.setMetadata(METADATA_KEY, new FixedMetadataValue(plugin, new ArrayList<ItemStack>())); // Empty list = no items to grave
-            
+
             // Clean up after short delay
             foliaLib.getImpl().runAtEntityLater(player, task -> {
                 if (player.hasMetadata(METADATA_KEY)) {
@@ -215,8 +216,8 @@ public class DeathListener implements Listener {
                     player.removeMetadata(METADATA_PROCESSED, plugin);
                 }
             }, 5L);
-            
-            plugin.getYskLib().logDebug(plugin, "keepInventory is enabled in world " + player.getWorld().getName() + " - skipping");
+
+            plugin.getYskLib().logDebug(plugin, "keepInventory is enabled for " + player.getName() + " - skipping");
             return;
         }
         

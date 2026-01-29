@@ -1,17 +1,24 @@
+# LamDeathPenalties
+
 LamDeathPenalties adds a soul points system with progressive death penalties for Paper/Folia 1.21+. Players lose soul points on death, facing harsher consequences as their soul weakens—from item drops to max health reduction.
 
-## Key Features
+## ✨ Key Features
 
 * **Soul points system**: Each player has a soul point pool that depletes on death and recovers over time with configurable intervals.
+* **Max soul points mechanics**: Personal max soul points that decrease on PvP kills and regenerate over time, adding long-term consequences to player killing.
 * **Progressive penalties**: Penalties scale with soul points—low points mean more item drops, vulnerable hotbar/armor, money loss, and reduced max health.
 * **Flexible item drops**: Configure drop percentages per soul points level; protect hotbar and armor at higher levels, expose everything at zero.
+* **Soulbound support**: Items with ExcellentEnchants Soulbound enchantment are never dropped on death.
 * **Max health penalties**: Remove hearts (REMOVE mode) or grant bonus hearts (ADD mode) based on soul points, with fallback inheritance between levels.
 * **Money integration**: Vault-based penalties with flat amounts or percentages; money transfers to killer on PvP death, disappears on natural death.
+* **PvP money transfer**: Configure what percentage of lost money goes to the killer (0-100%), with the rest disappearing.
 * **Level-based commands**: Trigger console commands (titles, sounds, kicks, etc.) when players reach specific soul points thresholds.
 * **Recovery modes**: Choose between real-time (wall-clock) or active-time (playtime-based) soul points recovery with configurable intervals.
 * **Fallback inheritance**: Penalties cascade upward through soul points levels—unset values inherit from the next higher tier automatically.
 * **Rich notifications**: Customizable death messages showing items lost, money penalties, max health changes, and recovery info.
-* **PlaceholderAPI support**: Expose current points, penalties, and recovery times to other plugins via placeholders.
+* **PlaceholderAPI support**: Expose current points, max points, penalties, and recovery times to other plugins via placeholders.
+* **AxGraves integration**: Seamless integration with modified AxGraves for proper kept items handling.
+* **Developer API**: Public API for other plugins to interact with the soul points system.
 
 ## How It Works
 
@@ -44,40 +51,58 @@ soul-points:
       # No max-health defined → inherits from level 3 → level 5 (2.0 hearts)
 ```
 
-## Commands
+## 📝 Commands
 
-| Command                         | Permission                   | Description                          |
-| ------------------------------- | ---------------------------- | ------------------------------------ |
-| `/lmdp`                         | *(default)*                  | Check your soul points               |
-| `/lmdp check <player>`          | `lmdp.check.others`          | View another player's soul points    |
-| `/lmdp set <player> <amount>`   | `lmdp.admin`                 | Set soul points (0 to max)           |
-| `/lmdp give <player> <amount>`  | `lmdp.admin`                 | Give soul points (capped at max)     |
-| `/lmdp take <player> <amount>`  | `lmdp.admin`                 | Remove soul points (min 0)           |
-| `/lmdp reload`                  | `lmdp.admin`                 | Reload config and refresh penalties  |
+| Command                            | Permission                   | Description                                    |
+| ---------------------------------- | ---------------------------- | ---------------------------------------------- |
+| `/lmdp`                            | *(default)*                  | Check your soul points and max soul points     |
+| `/lmdp check <player>`             | `lmdp.check.others`          | View another player's soul points              |
+| `/lmdp set <player> <amount>`      | `lmdp.admin`                 | Set soul points (0 to max)                     |
+| `/lmdp give <player> <amount>`     | `lmdp.admin`                 | Give soul points (capped at max)               |
+| `/lmdp take <player> <amount>`     | `lmdp.admin`                 | Remove soul points (min 0)                     |
+| `/lmdp setmax <player> <amount>`   | `lmdp.admin`                 | Set player's max soul points                   |
+| `/lmdp givemax <player> <amount>`  | `lmdp.admin`                 | Increase player's max soul points              |
+| `/lmdp takemax <player> <amount>`  | `lmdp.admin`                 | Decrease player's max soul points              |
+| `/lmdp reload`                     | `lmdp.admin`                 | Reload config and refresh penalties            |
 
 **Aliases:** `/soulpoints`, `/sp`
 
-## Permissions
+## 🔐 Permissions
 
-| Permission          | Description                                  |
-| ------------------- | -------------------------------------------- |
-| `lmdp.bypass`       | Bypass all death penalties (keepInventory)   |
-| `lmdp.check.others` | Check other players' soul points             |
-| `lmdp.admin`        | Modify soul points and reload plugin         |
+| Permission          | Description                                         |
+| ------------------- | --------------------------------------------------- |
+| `lmdp.bypass`       | Bypass all death penalties (keeps inventory/xp)     |
+| `lmdp.check.others` | Check other players' soul points                    |
+| `lmdp.admin`        | Modify soul points, max soul points, reload plugin  |
 
-## Setup
+## 📦 Setup
 
-1. **Install dependencies**: Download [YskLib](https://github.com/YusakiDev/YskLib/releases) (1.6.7+) and place it in `plugins/`.
+### Requirements
+
+* **Minecraft**: Paper or Folia 1.21+
+* **Java**: Java 21 runtime
+* **Dependencies**:
+  * [YskLib](https://github.com/YusakiDev/YskLib/releases) **1.6.9** (required)
+  * [Vault](https://www.spigotmc.org/resources/vault.34315/) (optional, for money penalties)
+  * [PlaceholderAPI](https://www.spigotmc.org/resources/placeholderapi.6245/) (optional, for placeholders)
+
+### Installation
+
+1. **Install YskLib**: Download [YskLib 1.6.9+](https://github.com/YusakiDev/YskLib/releases) and place it in `plugins/`.
 2. **Drop the jar**: Add LamDeathPenalties to `plugins/` and start the server.
 3. **Configure penalties**: Edit `plugins/LamDeathPenalties/config.yml`:
    - Set `soul-points.max` and `soul-points.starting` values
+   - Configure max soul points mechanics under `soul-points.max-soul-points`
    - Choose recovery mode (`real-time` or `active-time`) and interval
    - Configure penalty tiers (0-10) with item drops, max health, money, and commands
+   - Adjust money transfer settings under `money-transfer`
 4. **Customize messages**: All notification text lives under `messages:` in the config (death penalties, recovery alerts, command responses).
 5. **Optional integrations**:
-   - Install Vault for money penalties
+   - Install Vault for money penalties and PvP transfers
    - Install PlaceholderAPI to use `%lamdeathpenalties_*%` placeholders
-6. Grant permissions to staff for admin commands.
+   - Install modified AxGraves for graves integration
+6. **Grant permissions**: Give staff `lmdp.admin` for admin commands.
+7. **Reload**: Run `/lmdp reload` to apply configuration changes.
 
 ## Configuration Examples
 
@@ -142,34 +167,87 @@ money-transfer:
 # - Natural death (lava, fall, mob): 150 coins disappear completely
 ```
 
-## PlaceholderAPI Placeholders
+## 🔌 PlaceholderAPI Placeholders
 
-| Placeholder                              | Description                                  |
-| ---------------------------------------- | -------------------------------------------- |
-| `%lamdeathpenalties_current_points%`     | Current soul points                          |
-| `%lamdeathpenalties_max_points%`         | Maximum soul points                          |
-| `%lamdeathpenalties_next_item_drop%`     | Item drop % at current level                 |
-| `%lamdeathpenalties_next_hotbar_drop%`   | Hotbar vulnerable? (true/false)              |
-| `%lamdeathpenalties_next_armor_drop%`    | Armor vulnerable? (true/false)               |
-| `%lamdeathpenalties_next_money_drop%`    | Money penalty at current level               |
-| `%lamdeathpenalties_next_max_health%`    | Max health penalty at current level          |
+### Soul Points
+| Placeholder                                    | Description                                  |
+| ---------------------------------------------- | -------------------------------------------- |
+| `%lamdeathpenalties_current_points%`           | Current soul points                          |
+| `%lamdeathpenalties_max_points%`               | Current maximum soul points (personal)       |
+| `%lamdeathpenalties_config_max_points%`        | Config maximum soul points (default)         |
 
-## Limitations & Roadmap
+### Next Death Penalties
+| Placeholder                                    | Description                                  |
+| ---------------------------------------------- | -------------------------------------------- |
+| `%lamdeathpenalties_next_item_drop%`           | Item drop % at current level                 |
+| `%lamdeathpenalties_next_hotbar_drop%`         | Hotbar vulnerable? (true/false)              |
+| `%lamdeathpenalties_next_armor_drop%`          | Armor vulnerable? (true/false)               |
+| `%lamdeathpenalties_next_money_drop%`          | Money penalty at current level               |
+| `%lamdeathpenalties_next_max_health%`          | Max health penalty at current level          |
+
+### Recovery Information
+| Placeholder                                    | Description                                  |
+| ---------------------------------------------- | -------------------------------------------- |
+| `%lamdeathpenalties_time_until_next_recovery%` | Time until next soul point recovery          |
+| `%lamdeathpenalties_recovery_mode%`            | Current recovery mode (real-time/active)     |
+
+## 🔧 Configuration Validation (v0.6.3)
+
+The plugin now validates critical configuration values on startup and reload:
+- **soul-points.max** must be > 0
+- **soul-points.starting** must be >= 0
+- **money-transfer.transfer-percent** must be 0-100
+- **recovery intervals** must be > 0
+
+Invalid values are auto-corrected to defaults with console warnings.
+
+## 🎯 Max Soul Points System
+
+Players have a **personal maximum** soul points capacity that can differ from the config default:
+- **PvP kills reduce** the killer's max soul points (configurable reduction per kill)
+- **Regeneration over time** gradually restores max soul points back to config maximum
+- **Minimum cap** prevents max soul points from going below a configured threshold
+- **Commands** allow admins to directly modify player max soul points
+
+This adds long-term consequences to player killing beyond single-death penalties.
+
+## 🛠️ Developer API
+
+LamDeathPenalties provides a public API for other plugins:
+
+```java
+// Get API instance
+LamDeathPenaltiesAPI api = Bukkit.getServicesManager()
+    .getRegistration(LamDeathPenaltiesAPI.class)
+    .getProvider();
+
+// Access managers
+SoulPointsManager soulPoints = api.getSoulPointsManager();
+RecoveryScheduler recovery = api.getRecoveryScheduler();
+
+// Listen to events
+@EventHandler
+public void onSoulPointsChange(SoulPointsChangeEvent event) {
+    // Cancellable - fired before soul points change
+    if (event.getReason() == ChangeReason.DEATH) {
+        event.setCancelled(true); // Prevent the change
+    }
+}
+
+@EventHandler
+public void onSoulPointsChanged(SoulPointsChangedEvent event) {
+    // Informational - fired after soul points changed
+    int oldPoints = event.getOldSoulPoints();
+    int newPoints = event.getNewSoulPoints();
+}
+```
+
+## ⚠️ Limitations & Roadmap
 
 * No cross-server soul points syncing yet
-* Active-time recovery mode requires playtime tracking improvements
-
-## Requirements
-
-* Paper or Folia 1.21+
-* Java 21 runtime
-* [YskLib](https://github.com/YusakiDev/YskLib/releases) 1.6.7 or above
-* (Optional) Vault for money penalties
-* (Optional) PlaceholderAPI for placeholder support
 
 ## Support
 
-* Issues: [GitHub](https://github.com/LamaliaNetwork/LamDeathPenalties/issues)
 * Discord: [YusakiDev](https://discord.gg/AjEh3dMPfq)
 
 Add consequence to death with a soul points system that scales penalties as players lose their essence.
