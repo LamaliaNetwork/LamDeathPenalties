@@ -5,8 +5,10 @@ import net.milkbowl.vault.economy.Economy;
 import net.milkbowl.vault.economy.EconomyResponse;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -17,6 +19,7 @@ import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.metadata.FixedMetadataValue;
 
 import java.util.*;
@@ -28,6 +31,7 @@ public class DeathListener implements Listener {
     private final SoulPointsManager soulPointsManager;
     private final FoliaLib foliaLib;
     private final Random random;
+    private Enchantment soulboundEnchant;
     private static final double BALANCE_EPSILON = 0.0001D;
     private static final String METADATA_KEY = "lmdp_dropped_items";
     private static final String METADATA_KEPT_ITEMS = "lmdp_kept_items";
@@ -49,7 +53,13 @@ public class DeathListener implements Listener {
         if (!player.hasMetadata(METADATA_KEPT_ITEMS)) {
             return;
         }
-        
+
+        // Safety check: ensure metadata list is not empty
+        if (player.getMetadata(METADATA_KEPT_ITEMS).isEmpty()) {
+            plugin.getYskLib().logWarn(plugin, "METADATA_KEPT_ITEMS exists but list is empty for " + player.getName());
+            return;
+        }
+
         Object metadataValue = player.getMetadata(METADATA_KEPT_ITEMS).get(0).value();
         if (!(metadataValue instanceof KeptItemsData keptData)) {
             return;
@@ -101,35 +111,28 @@ public class DeathListener implements Listener {
         Player victim = event.getEntity();
         
         if (!plugin.isSoulPointsEnabled()) {
+            plugin.getYskLib().logDebug(plugin, "onPlayerKill: Soul points disabled, skipping");
             return;
         }
         
         if (!plugin.getConfig().getBoolean("soul-points.max-soul-points.enabled", true)) {
+            plugin.getYskLib().logDebug(plugin, "onPlayerKill: Max soul points reduction disabled, skipping");
             return;
         }
         
-        // Check if the victim was killed by another player
-        EntityDamageEvent lastDamageCause = victim.getLastDamageCause();
-        if (!(lastDamageCause instanceof EntityDamageByEntityEvent damageByEntityEvent)) {
-            return;
-        }
+        // Get the killer using improved detection (handles indirect damage)
+        Player killer = getKiller(victim);
         
-        // Get the killer (could be direct player or projectile shooter)
-        Player killer = null;
-        if (damageByEntityEvent.getDamager() instanceof Player) {
-            killer = (Player) damageByEntityEvent.getDamager();
-        } else if (damageByEntityEvent.getDamager() instanceof org.bukkit.entity.Projectile projectile) {
-            if (projectile.getShooter() instanceof Player) {
-                killer = (Player) projectile.getShooter();
-            }
-        }
-        
-        if (killer == null || killer.getUniqueId().equals(victim.getUniqueId())) {
+        if (killer == null) {
+            plugin.getYskLib().logDebug(plugin, "onPlayerKill: No killer found for victim " + victim.getName());
             return;  // No killer or suicide
         }
         
+        plugin.getYskLib().logDebug(plugin, "onPlayerKill: Killer identified: " + killer.getName() + " killed " + victim.getName());
+        
         // Check if killer has bypass permission
         if (killer.hasPermission("lmdp.bypass")) {
+            plugin.getYskLib().logDebug(plugin, "onPlayerKill: Killer " + killer.getName() + " has bypass permission, skipping");
             return;
         }
         
@@ -137,9 +140,13 @@ public class DeathListener implements Listener {
         int reductionAmount = plugin.getConfig().getInt("soul-points.max-soul-points.reduction-per-kill", 1);
         int oldMax = soulPointsManager.getMaxSoulPoints(killer.getUniqueId());
         
+        plugin.getYskLib().logDebug(plugin, "onPlayerKill: BEFORE reduction - Killer " + killer.getName() + " max SP: " + oldMax);
+        
         soulPointsManager.reduceMaxSoulPoints(killer.getUniqueId(), reductionAmount);
         
         int newMax = soulPointsManager.getMaxSoulPoints(killer.getUniqueId());
+        
+        plugin.getYskLib().logDebug(plugin, "onPlayerKill: AFTER reduction - Killer " + killer.getName() + " max SP: " + newMax + " (reduced by " + (oldMax - newMax) + ")");
         
         // Notify killer if their max was reduced
         if (newMax < oldMax) {
@@ -159,7 +166,7 @@ public class DeathListener implements Listener {
         }
     }
     
-    @EventHandler(priority = EventPriority.HIGH)
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)  // Changed to LOWEST to run before other plugins
     public void onPlayerDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
 
@@ -176,12 +183,39 @@ public class DeathListener implements Listener {
             event.setKeepLevel(true);
             event.getDrops().clear();
             event.setDroppedExp(0);
-            plugin.getYskLib().logDebug(plugin, "Player " + player.getName() + " has bypass permission - keeping inventory");
+            
+            // Mark as processed to signal AxGraves (and other grave plugins) not to create a grave
+            // This prevents graves from being created for players with bypass permission
+            player.setMetadata(METADATA_PROCESSED, new FixedMetadataValue(plugin, true));
+            player.setMetadata(METADATA_KEY, new FixedMetadataValue(plugin, new ArrayList<ItemStack>())); // Empty list = no items to grave
+            
+            // Schedule a task to ensure items stay in inventory even if graves plugin tries to take them
+            foliaLib.getImpl().runAtEntityLater(player, task -> {
+                // Clean up metadata after a short delay (graves plugins should have processed by then)
+                if (player.hasMetadata(METADATA_KEY)) {
+                    player.removeMetadata(METADATA_KEY, plugin);
+                    player.removeMetadata(METADATA_PROCESSED, plugin);
+                }
+            }, 5L); // 5 ticks = 0.25 seconds
+            
+            plugin.getYskLib().logDebug(plugin, "Player " + player.getName() + " has bypass permission - keeping inventory (BYPASS ACTIVE)");
             return;
         }
 
         // Check if keepInventory is enabled - if so, skip all plugin logic
         if (Boolean.parseBoolean(player.getWorld().getGameRuleValue("keepInventory"))) {
+            // Also mark as processed for grave plugins
+            player.setMetadata(METADATA_PROCESSED, new FixedMetadataValue(plugin, true));
+            player.setMetadata(METADATA_KEY, new FixedMetadataValue(plugin, new ArrayList<ItemStack>())); // Empty list = no items to grave
+            
+            // Clean up after short delay
+            foliaLib.getImpl().runAtEntityLater(player, task -> {
+                if (player.hasMetadata(METADATA_KEY)) {
+                    player.removeMetadata(METADATA_KEY, plugin);
+                    player.removeMetadata(METADATA_PROCESSED, plugin);
+                }
+            }, 5L);
+            
             plugin.getYskLib().logDebug(plugin, "keepInventory is enabled in world " + player.getWorld().getName() + " - skipping");
             return;
         }
@@ -226,12 +260,15 @@ public class DeathListener implements Listener {
         
         // Experience always drops (default Minecraft behavior)
         // Send death notification with delay using Folia-compatible scheduler
-        final Player finalKiller = killer;
+        final UUID finalKillerUuid = killer != null ? killer.getUniqueId() : null;
         foliaLib.getImpl().runAtEntityLater(player, task -> {
             sendDeathNotification(player, oldSoulPoints, currentSoulPoints, dropResult, moneyResult, maxHealthResult);
-            // Notify killer if they received money
-            if (finalKiller != null && moneyResult.transferredToKiller > 0.0D) {
-                sendKillerMoneyNotification(finalKiller, player, moneyResult.transferredToKiller);
+            // Notify killer if they received money (re-fetch player to ensure still online)
+            if (finalKillerUuid != null && moneyResult.transferredToKiller > 0.0D) {
+                Player currentKiller = Bukkit.getPlayer(finalKillerUuid);
+                if (currentKiller != null && currentKiller.isOnline()) {
+                    sendKillerMoneyNotification(currentKiller, player, moneyResult.transferredToKiller);
+                }
             }
         }, 40L); // 2 second delay after death
     }
@@ -261,6 +298,10 @@ public class DeathListener implements Listener {
         for (int slot = 9; slot < 36; slot++) {
             ItemStack item = player.getInventory().getItem(slot);
             if (item != null && !item.getType().isAir()) {
+                if (isSoulboundItem(item)) {
+                    addItemsFromStack(itemsToKeep, item, slot, "inventory");
+                    continue;
+                }
                 addItemsFromStack(vulnerableItems, item, slot, "inventory");
             }
         }
@@ -271,6 +312,10 @@ public class DeathListener implements Listener {
             for (int slot = 0; slot < 9; slot++) {
                 ItemStack item = player.getInventory().getItem(slot);
                 if (item != null && !item.getType().isAir()) {
+                    if (isSoulboundItem(item)) {
+                        addItemsFromStack(itemsToKeep, item, slot, "inventory");
+                        continue;
+                    }
                     addItemsFromStack(vulnerableItems, item, slot, "inventory");
                 }
             }
@@ -291,6 +336,10 @@ public class DeathListener implements Listener {
             String[] armorSlots = {"boots", "leggings", "chestplate", "helmet"};
             for (int i = 0; i < armor.length; i++) {
                 if (armor[i] != null && !armor[i].getType().isAir()) {
+                    if (isSoulboundItem(armor[i])) {
+                        addItemsFromStack(itemsToKeep, armor[i], i, armorSlots[i]);
+                        continue;
+                    }
                     addItemsFromStack(vulnerableItems, armor[i], i, armorSlots[i]);
                 }
             }
@@ -308,7 +357,9 @@ public class DeathListener implements Listener {
         // Handle offhand
         ItemStack offhand = player.getInventory().getItemInOffHand();
         if (offhand != null && !offhand.getType().isAir()) {
-            if (dropRates.hotbarDrop) {
+            if (isSoulboundItem(offhand)) {
+                addItemsFromStack(itemsToKeep, offhand, 0, "offhand");
+            } else if (dropRates.hotbarDrop) {
                 addItemsFromStack(vulnerableItems, offhand, 0, "offhand");
             } else {
                 addItemsFromStack(itemsToKeep, offhand, 0, "offhand");
@@ -374,6 +425,13 @@ public class DeathListener implements Listener {
             foliaLib.getImpl().runAtEntityLater(player, task -> {
                 if (player.hasMetadata(METADATA_KEY)) {
                     // AxGraves never collected the items, drop them manually
+                    if (player.getMetadata(METADATA_KEY).isEmpty()) {
+                        plugin.getYskLib().logWarn(plugin, "METADATA_KEY exists but list is empty for " + player.getName());
+                        player.removeMetadata(METADATA_KEY, plugin);
+                        player.removeMetadata(METADATA_KEPT_ITEMS, plugin);
+                        player.removeMetadata(METADATA_PROCESSED, plugin);
+                        return;
+                    }
                     Object metadataValue = player.getMetadata(METADATA_KEY).get(0).value();
                     if (metadataValue instanceof List<?>) {
                         for (Object item : (List<?>) metadataValue) {
@@ -382,12 +440,16 @@ public class DeathListener implements Listener {
                             }
                         }
                     }
-                    
+
                     // Restore kept items
                     if (player.hasMetadata(METADATA_KEPT_ITEMS)) {
-                        Object keptMetadata = player.getMetadata(METADATA_KEPT_ITEMS).get(0).value();
-                        if (keptMetadata instanceof KeptItemsData keptData) {
-                            restoreKeptItemsToOriginalSlots(player, keptData.itemsToKeep, keptData.originalInventory, keptData.originalArmor, keptData.originalOffhand);
+                        if (player.getMetadata(METADATA_KEPT_ITEMS).isEmpty()) {
+                            plugin.getYskLib().logWarn(plugin, "METADATA_KEPT_ITEMS exists but list is empty during fallback for " + player.getName());
+                        } else {
+                            Object keptMetadata = player.getMetadata(METADATA_KEPT_ITEMS).get(0).value();
+                            if (keptMetadata instanceof KeptItemsData keptData) {
+                                restoreKeptItemsToOriginalSlots(player, keptData.itemsToKeep, keptData.originalInventory, keptData.originalArmor, keptData.originalOffhand);
+                            }
                         }
                     }
                     
@@ -413,6 +475,37 @@ public class DeathListener implements Listener {
         }
         
         return new ItemDropResult(totalVulnerableCount, itemsToDropCount, droppedItems);
+    }
+
+    private boolean isSoulboundItem(ItemStack stack) {
+        if (stack == null || stack.getType().isAir()) {
+            return false;
+        }
+
+        if (soulboundEnchant == null) {
+            soulboundEnchant = resolveSoulboundEnchant();
+        }
+
+        if (soulboundEnchant == null) {
+            return false;
+        }
+
+        ItemMeta meta = stack.getItemMeta();
+        return meta != null && meta.hasEnchant(soulboundEnchant);
+    }
+
+    private Enchantment resolveSoulboundEnchant() {
+        Enchantment enchantment = null;
+        NamespacedKey excellentKey = NamespacedKey.fromString("excellentenchants:soulbound");
+        if (excellentKey != null) {
+            enchantment = Enchantment.getByKey(excellentKey);
+        }
+
+        if (enchantment == null) {
+            enchantment = Enchantment.getByKey(NamespacedKey.minecraft("soulbound"));
+        }
+
+        return enchantment;
     }
     
     private void addItemsFromStack(List<ItemEntry> list, ItemStack stack, int slot, String type) {
@@ -518,7 +611,7 @@ public class DeathListener implements Listener {
     private void sendDeathNotification(Player player, int oldSoulPoints, int currentSoulPoints,
                                       ItemDropResult dropResult, MoneyPenaltyResult moneyResult,
                                       SoulPointsManager.MaxHealthPenaltyResult maxHealthResult) {
-        int maxSoulPoints = plugin.getConfig().getInt("soul-points.max", 10);
+        int maxSoulPoints = soulPointsManager.getMaxSoulPoints(player.getUniqueId());  // Use player's personal max
         org.yusaki.lib.modules.MessageManager messageManager = plugin.getMessageManager();
 
         // Prepare placeholders
@@ -698,29 +791,43 @@ public class DeathListener implements Listener {
     
     /**
      * Gets the killer of a player, if they were killed by another player
+     * Uses Bukkit's built-in killer tracking which handles indirect damage
+     * (fire, fall, poison, etc.) properly
      */
     private Player getKiller(Player victim) {
-        EntityDamageEvent lastDamageCause = victim.getLastDamageCause();
-        if (!(lastDamageCause instanceof EntityDamageByEntityEvent damageByEntityEvent)) {
-            return null;
-        }
+        // First, try Bukkit's built-in killer tracking
+        // This properly handles indirect kills (fire aspect, fall damage, poison, etc.)
+        Player killer = victim.getKiller();
         
-        // Get the killer (could be direct player or projectile shooter)
-        Player killer = null;
-        if (damageByEntityEvent.getDamager() instanceof Player) {
-            killer = (Player) damageByEntityEvent.getDamager();
-        } else if (damageByEntityEvent.getDamager() instanceof org.bukkit.entity.Projectile projectile) {
-            if (projectile.getShooter() instanceof Player) {
-                killer = (Player) projectile.getShooter();
+        if (killer != null) {
+            // Don't count suicide as a kill
+            if (!killer.getUniqueId().equals(victim.getUniqueId())) {
+                return killer;
             }
         }
         
-        // Don't count suicide as a kill
-        if (killer != null && killer.getUniqueId().equals(victim.getUniqueId())) {
-            return null;
+        // Fallback: check last damage cause for edge cases
+        // This catches some situations where getKiller() might return null
+        EntityDamageEvent lastDamageCause = victim.getLastDamageCause();
+        if (lastDamageCause instanceof EntityDamageByEntityEvent damageByEntityEvent) {
+            // Get the killer (could be direct player or projectile shooter)
+            if (damageByEntityEvent.getDamager() instanceof Player) {
+                killer = (Player) damageByEntityEvent.getDamager();
+            } else if (damageByEntityEvent.getDamager() instanceof org.bukkit.entity.Projectile projectile) {
+                if (projectile.getShooter() instanceof Player) {
+                    killer = (Player) projectile.getShooter();
+                }
+            }
+            
+            // Don't count suicide as a kill
+            if (killer != null && killer.getUniqueId().equals(victim.getUniqueId())) {
+                return null;
+            }
+            
+            return killer;
         }
         
-        return killer;
+        return null;
     }
     
     /**

@@ -47,7 +47,7 @@ soul-points:
   max-soul-points:
     enabled: true # Enable max soul points reduction on player kill
     reduction-per-kill: 1  # How many max soul points to reduce per player kill
-    minimum: 5             # Minimum max soul points (0 = can go down to 0, always capped at 0)
+    minimum: 0             # Minimum max soul points (0 = can go down to 0, always capped at 0)
                            # Set to 1 or higher to ensure players can always recover some soul points
     regeneration:
       enabled: true        # Enable max soul points regeneration over time

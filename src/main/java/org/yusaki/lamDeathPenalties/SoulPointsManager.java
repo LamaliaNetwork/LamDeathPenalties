@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class SoulPointsManager {
     private static final UUID MAX_HEALTH_MODIFIER_ID = UUID.fromString("d9f8f1e3-2c11-4a3a-9abc-1f1e6f9d72b5");
@@ -36,7 +37,7 @@ public class SoulPointsManager {
         this.plugin = plugin;
         this.gson = new GsonBuilder().setPrettyPrinting().create();
         this.dataFile = new File(plugin.getDataFolder(), "playerdata.json");
-        this.playerData = new HashMap<>();
+        this.playerData = new ConcurrentHashMap<>();
         loadPlayerData();
         plugin.getYskLib().logDebug(plugin, "SoulPointsManager initialized with " + playerData.size() + " players");
     }
@@ -81,7 +82,13 @@ public class SoulPointsManager {
             return;
         }
         int configMax = plugin.getConfig().getInt("soul-points.max", 10);
-        int clampedMax = Math.max(0, Math.min(maxPoints, configMax));
+        
+        // Respect the configured minimum for max soul points
+        // This allows admins to prevent max soul points from going too low
+        int minimumMax = Math.max(0, plugin.getConfig().getInt("soul-points.max-soul-points.minimum", 0));
+        
+        // Clamp between minimum and config max
+        int clampedMax = Math.max(minimumMax, Math.min(maxPoints, configMax));
         
         PlayerSoulData data = playerData.get(playerId);
         if (data == null) {
@@ -99,7 +106,7 @@ public class SoulPointsManager {
         }
         
         savePlayerData();
-        plugin.getYskLib().logDebug(plugin, "Max soul points for " + playerId + " changed: " + oldMax + " -> " + clampedMax);
+        plugin.getYskLib().logDebug(plugin, "Max soul points for " + playerId + " changed: " + oldMax + " -> " + clampedMax + " (minimum: " + minimumMax + ", config max: " + configMax + ")");
     }
     
     public void reduceMaxSoulPoints(UUID playerId, int amount) {
@@ -196,19 +203,24 @@ public class SoulPointsManager {
     
     public void setSoulPointsWithReason(UUID playerId, int points, SoulPointsChangeEvent.ChangeReason reason) {
         if (!plugin.isSoulPointsEnabled()) {
+            plugin.getYskLib().logDebug(plugin, "setSoulPointsWithReason: Soul points disabled");
             return;
         }
         Player player = Bukkit.getPlayer(playerId);
         if (player == null) {
+            plugin.getYskLib().logDebug(plugin, "setSoulPointsWithReason: Player offline, using setSoulPoints() directly");
             setSoulPoints(playerId, points);
             return;
         }
         
         int oldPoints = getSoulPoints(playerId);
-        int maxPoints = plugin.getConfig().getInt("soul-points.max", 10);
+        int maxPoints = getMaxSoulPoints(playerId);  // Use player's personal max, not config max!
         int clampedPoints = Math.max(0, Math.min(points, maxPoints));
         
+        plugin.getYskLib().logDebug(plugin, "setSoulPointsWithReason: " + player.getName() + " - old: " + oldPoints + ", requested: " + points + ", clamped: " + clampedPoints + " (max: " + maxPoints + ")");
+        
         if (oldPoints == clampedPoints) {
+            plugin.getYskLib().logDebug(plugin, "setSoulPointsWithReason: No change needed (old == clamped)");
             return;
         }
         
@@ -216,10 +228,12 @@ public class SoulPointsManager {
         Bukkit.getPluginManager().callEvent(changeEvent);
         
         if (changeEvent.isCancelled()) {
+            plugin.getYskLib().logDebug(plugin, "setSoulPointsWithReason: Event was cancelled by another plugin!");
             return;
         }
         
         int newPoints = changeEvent.getNewSoulPoints();
+        plugin.getYskLib().logDebug(plugin, "setSoulPointsWithReason: Applying change - " + player.getName() + " soul points: " + oldPoints + " -> " + newPoints);
         setSoulPoints(playerId, newPoints);
 
         // Execute commands for the new soul points level (only when decreasing)
@@ -761,15 +775,17 @@ public class SoulPointsManager {
         }
         PlayerSoulData data = playerData.get(playerId);
         if (data == null) return 0;
+        
+        // Check if already at max - return 0 for both modes to show "Ready!" in UI
+        int maxPoints = getMaxSoulPoints(playerId);
+        if (data.soulPoints >= maxPoints) {
+            return 0;
+        }
+        
         long intervalSeconds = plugin.getRecoveryIntervalSeconds();
         long intervalMs = intervalSeconds * 1000L;
 
         if (plugin.getRecoveryMode().equals("active-time")) {
-            int maxPoints = plugin.getConfig().getInt("soul-points.max", 10);
-            if (data.soulPoints >= maxPoints) {
-                return 0;
-            }
-
             long currentTime = System.currentTimeMillis();
             long accumulatedPlayTime = data.totalPlayTime;
             if (data.sessionStartTime > 0L) {
@@ -793,7 +809,8 @@ public class SoulPointsManager {
             Type type = new TypeToken<Map<UUID, PlayerSoulData>>(){}.getType();
             Map<UUID, PlayerSoulData> loaded = gson.fromJson(reader, type);
             if (loaded != null) {
-                playerData = loaded;
+                // Ensure thread-safe map even after deserialization
+                playerData = new ConcurrentHashMap<>(loaded);
             }
         } catch (IOException e) {
             plugin.getYskLib().logWarn(plugin, "Failed to load player data: " + e.getMessage());
@@ -807,9 +824,24 @@ public class SoulPointsManager {
                 plugin.getDataFolder().mkdirs();
             }
 
-            try (FileWriter writer = new FileWriter(dataFile)) {
+            // Atomic write: write to temp file, then rename
+            File tempFile = new File(dataFile.getParentFile(), dataFile.getName() + ".tmp");
+
+            try (FileWriter writer = new FileWriter(tempFile)) {
                 gson.toJson(playerData, writer);
             }
+
+            // Atomic rename (overwrites existing file atomically on most filesystems)
+            if (!tempFile.renameTo(dataFile)) {
+                // Fallback for Windows: delete old file first, then rename
+                if (dataFile.exists() && !dataFile.delete()) {
+                    throw new IOException("Failed to delete old data file");
+                }
+                if (!tempFile.renameTo(dataFile)) {
+                    throw new IOException("Failed to rename temp file to data file");
+                }
+            }
+
             plugin.getYskLib().logDebug(plugin, "Saved " + playerData.size() + " player records to " + dataFile.getName());
         } catch (IOException e) {
             plugin.getYskLib().logWarn(plugin, "Failed to save player data: " + e.getMessage());

@@ -6,7 +6,7 @@
 
     <groupId>org.yusaki</groupId>
     <artifactId>LamDeathPenalties</artifactId>
-    <version>0.6.0${build.number.formatted}</version>
+    <version>0.6.3${build.number.formatted}</version>
     <packaging>jar</packaging>
 
     <name>LamDeathPenalties</name>
@@ -57,6 +57,26 @@
                                     </excludes>
                                 </filter>
                             </filters>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <mkdir dir="${user.home}/sync/Plugins/${project.name}" />
+                                <copy
+                                    file="${project.build.directory}/${project.build.finalName}.jar"
+                                    tofile="${user.home}/sync/Plugins/${project.name}/${project.build.finalName}.jar" />
+                            </target>
                         </configuration>
                     </execution>
                 </executions>

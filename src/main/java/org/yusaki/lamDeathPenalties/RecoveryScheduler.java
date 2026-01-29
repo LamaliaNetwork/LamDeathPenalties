@@ -77,7 +77,7 @@ public class RecoveryScheduler {
                     "count", String.valueOf(recoveryCount),
                     "plural", recoveryCount > 1 ? "s" : "",
                     "current_points", String.valueOf(newSoulPoints),
-                    "max_points", String.valueOf(newMaxSoulPoints)
+                    "max_points", String.valueOf(newMaxSoulPoints)  // Already using player's max - correct!
                 ));
             }
             
@@ -119,7 +119,7 @@ public class RecoveryScheduler {
 
             if (player != null && newSoulPoints > oldSoulPoints) {
                 int recoveryCount = newSoulPoints - oldSoulPoints;
-                int maxSoulPoints = plugin.getConfig().getInt("soul-points.max", 10);
+                int maxSoulPoints = soulPointsManager.getMaxSoulPoints(playerId);  // Use player's personal max
 
                 plugin.getYskLib().logDebug(plugin, "Player " + player.getName() + " recovered " + recoveryCount + " soul point(s) on join (active-time)");
                 org.yusaki.lib.modules.MessageManager messageManager = plugin.getMessageManager();

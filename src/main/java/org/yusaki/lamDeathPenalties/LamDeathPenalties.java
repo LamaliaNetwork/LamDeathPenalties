@@ -48,6 +48,7 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
         yskLib.loadMessages(this);
 
         loadSettings();
+        validateConfig();
         setupEconomy();
 
         // Initialize managers
@@ -121,9 +122,22 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
         if (!isSoulPointsEnabled()) {
             return;
         }
-        soulPointsManager.endSession(event.getPlayer().getUniqueId());
+        Player player = event.getPlayer();
+
+        soulPointsManager.endSession(player.getUniqueId());
         if (recoveryScheduler != null) {
-            recoveryScheduler.onPlayerQuit(event.getPlayer().getUniqueId());
+            recoveryScheduler.onPlayerQuit(player.getUniqueId());
+        }
+
+        // Clean up any lingering metadata to prevent memory leaks
+        if (player.hasMetadata("lmdp_dropped_items")) {
+            player.removeMetadata("lmdp_dropped_items", this);
+        }
+        if (player.hasMetadata("lmdp_kept_items")) {
+            player.removeMetadata("lmdp_kept_items", this);
+        }
+        if (player.hasMetadata("lmdp_processed")) {
+            player.removeMetadata("lmdp_processed", this);
         }
     }
     
@@ -164,6 +178,7 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
         }
 
         loadSettings();
+        validateConfig();
         setupEconomy();
 
         // Refresh max health penalties for online players
@@ -188,6 +203,63 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
             yskLib.logDebug(this, "Soul points system enabled: " + soulPointsEnabled);
         } else {
             getLogger().info("Soul points system enabled: " + soulPointsEnabled);
+        }
+    }
+
+    private void validateConfig() {
+        boolean hasErrors = false;
+
+        // Validate soul-points.max (CRITICAL - must be > 0)
+        int maxSoulPoints = getConfig().getInt("soul-points.max", 10);
+        if (maxSoulPoints <= 0) {
+            yskLib.logWarn(this, "INVALID CONFIG: soul-points.max must be > 0 (found: " + maxSoulPoints + "). Using default: 10");
+            getConfig().set("soul-points.max", 10);
+            hasErrors = true;
+        }
+
+        // Validate soul-points.starting (must be >= 0)
+        int startingSoulPoints = getConfig().getInt("soul-points.starting", 10);
+        if (startingSoulPoints < 0) {
+            yskLib.logWarn(this, "INVALID CONFIG: soul-points.starting must be >= 0 (found: " + startingSoulPoints + "). Using default: 10");
+            getConfig().set("soul-points.starting", 10);
+            hasErrors = true;
+        }
+
+        // Validate money-transfer.transfer-percent (0-100)
+        double transferPercent = getConfig().getDouble("money-transfer.transfer-percent", 100.0);
+        if (transferPercent < 0.0 || transferPercent > 100.0) {
+            yskLib.logWarn(this, "INVALID CONFIG: money-transfer.transfer-percent must be 0-100 (found: " + transferPercent + "). Using default: 100.0");
+            getConfig().set("money-transfer.transfer-percent", 100.0);
+            hasErrors = true;
+        }
+
+        // Validate recovery.interval-seconds (must be > 0)
+        long intervalSeconds = getConfig().getLong("soul-points.recovery.interval-seconds", 3600L);
+        if (intervalSeconds <= 0) {
+            yskLib.logWarn(this, "INVALID CONFIG: soul-points.recovery.interval-seconds must be > 0 (found: " + intervalSeconds + "). Using default: 3600");
+            getConfig().set("soul-points.recovery.interval-seconds", 3600L);
+            hasErrors = true;
+        }
+
+        // Validate max-soul-points.minimum (must be >= 0)
+        int maxMinimum = getConfig().getInt("soul-points.max-soul-points.minimum", 0);
+        if (maxMinimum < 0) {
+            yskLib.logWarn(this, "INVALID CONFIG: soul-points.max-soul-points.minimum must be >= 0 (found: " + maxMinimum + "). Using default: 0");
+            getConfig().set("soul-points.max-soul-points.minimum", 0);
+            hasErrors = true;
+        }
+
+        // Validate max-soul-points.regeneration.interval-seconds (must be > 0)
+        long maxIntervalSeconds = getConfig().getLong("soul-points.max-soul-points.regeneration.interval-seconds", 86400L);
+        if (maxIntervalSeconds <= 0) {
+            yskLib.logWarn(this, "INVALID CONFIG: soul-points.max-soul-points.regeneration.interval-seconds must be > 0 (found: " + maxIntervalSeconds + "). Using default: 86400");
+            getConfig().set("soul-points.max-soul-points.regeneration.interval-seconds", 86400L);
+            hasErrors = true;
+        }
+
+        if (hasErrors) {
+            yskLib.logWarn(this, "Configuration validation found errors. Invalid values have been corrected to defaults.");
+            yskLib.logWarn(this, "Please review your config.yml and correct these values, then run /lmdp reload");
         }
     }
 

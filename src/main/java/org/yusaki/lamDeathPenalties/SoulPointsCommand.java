@@ -103,7 +103,7 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
 
         try {
             int amount = Integer.parseInt(args[2]);
-            int maxPoints = plugin.getConfig().getInt("soul-points.max", 10);
+            int maxPoints = soulPointsManager.getMaxSoulPoints(target.getUniqueId());
 
             if (amount < 0 || amount > maxPoints) {
                 messageManager.sendMessage(plugin, sender, "set-amount-range", placeholders("max_points", String.valueOf(maxPoints)));
@@ -153,7 +153,7 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
         try {
             int amount = Integer.parseInt(args[2]);
             int currentPoints = soulPointsManager.getSoulPoints(target.getUniqueId());
-            int maxPoints = plugin.getConfig().getInt("soul-points.max", 10);
+            int maxPoints = soulPointsManager.getMaxSoulPoints(target.getUniqueId());
             
             if (amount <= 0) {
                 messageManager.sendMessage(plugin, sender, "give-amount-positive");
@@ -208,7 +208,7 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
         try {
             int amount = Integer.parseInt(args[2]);
             int currentPoints = soulPointsManager.getSoulPoints(target.getUniqueId());
-            int maxPoints = plugin.getConfig().getInt("soul-points.max", 10);
+            int maxPoints = soulPointsManager.getMaxSoulPoints(target.getUniqueId());
             
             if (amount <= 0) {
                 messageManager.sendMessage(plugin, sender, "take-amount-positive");
