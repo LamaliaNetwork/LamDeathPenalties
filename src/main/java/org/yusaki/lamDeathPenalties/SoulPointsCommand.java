@@ -538,7 +538,7 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
     private String createProgressBar(int current, int max) {
         org.yusaki.lib.modules.MessageManager messageManager = plugin.getMessageManager();
         int barLength = 20;
-        int filledBars = (int) ((double) current / max * barLength);
+        int filledBars = max > 0 ? (int) ((double) current / max * barLength) : 0;
 
         StringBuilder bar = new StringBuilder();
         for (int i = 0; i < barLength; i++) {

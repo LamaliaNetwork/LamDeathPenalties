@@ -42,6 +42,10 @@ public class SoulPointsManager {
         plugin.getYskLib().logDebug(plugin, "SoulPointsManager initialized with " + playerData.size() + " players");
     }
     
+    public boolean hasData(UUID playerId) {
+        return playerData.containsKey(playerId);
+    }
+
     public int getSoulPoints(UUID playerId) {
         if (!plugin.isSoulPointsEnabled()) {
             PlayerSoulData data = playerData.get(playerId);
@@ -814,6 +818,10 @@ public class SoulPointsManager {
             }
         } catch (IOException e) {
             plugin.getYskLib().logWarn(plugin, "Failed to load player data: " + e.getMessage());
+        } catch (Exception e) {
+            plugin.getYskLib().logWarn(plugin, "Player data file is corrupt, backing up and starting fresh: " + e.getMessage());
+            File backup = new File(dataFile.getParentFile(), dataFile.getName() + ".corrupt");
+            dataFile.renameTo(backup);
         }
         plugin.getYskLib().logDebug(plugin, "Loaded " + playerData.size() + " player records from " + dataFile.getName());
     }

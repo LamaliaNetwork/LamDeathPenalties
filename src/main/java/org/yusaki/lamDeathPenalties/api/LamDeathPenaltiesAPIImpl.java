@@ -290,13 +290,7 @@ public class LamDeathPenaltiesAPIImpl implements LamDeathPenaltiesAPI {
     
     @Override
     public boolean hasPlayerData(UUID playerId) {
-        // Check if player has been initialized in the system
-        try {
-            soulPointsManager.getSoulPoints(playerId);
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
+        return soulPointsManager.hasData(playerId);
     }
     
     @Override
