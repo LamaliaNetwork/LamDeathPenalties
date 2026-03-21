@@ -10,6 +10,9 @@ version: 0.7
 # 3 = Debug (detailed troubleshooting)
 debug: 2
 
+# Send anonymous error reports to help improve the plugin
+error-reporting: true
+
 # Money transfer settings
 # When a player kills another player, money can be transferred from victim to killer
 money-transfer:

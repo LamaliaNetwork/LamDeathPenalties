@@ -46,6 +46,7 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
 
         // Load messages via YskLib
         yskLib.loadMessages(this);
+        yskLib.registerPlugin(this);
 
         loadSettings();
         validateConfig();

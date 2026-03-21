@@ -818,8 +818,10 @@ public class SoulPointsManager {
             }
         } catch (IOException e) {
             plugin.getYskLib().logWarn(plugin, "Failed to load player data: " + e.getMessage());
+            plugin.getYskLib().captureException("LamDeathPenalties", e);
         } catch (Exception e) {
             plugin.getYskLib().logWarn(plugin, "Player data file is corrupt, backing up and starting fresh: " + e.getMessage());
+            plugin.getYskLib().captureException("LamDeathPenalties", e);
             File backup = new File(dataFile.getParentFile(), dataFile.getName() + ".corrupt");
             dataFile.renameTo(backup);
         }
@@ -853,6 +855,7 @@ public class SoulPointsManager {
             plugin.getYskLib().logDebug(plugin, "Saved " + playerData.size() + " player records to " + dataFile.getName());
         } catch (IOException e) {
             plugin.getYskLib().logWarn(plugin, "Failed to save player data: " + e.getMessage());
+            plugin.getYskLib().captureException("LamDeathPenalties", e);
         }
     }
 
