@@ -22,6 +22,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class SoulPointsManager {
     private static final UUID MAX_HEALTH_MODIFIER_ID = UUID.fromString("d9f8f1e3-2c11-4a3a-9abc-1f1e6f9d72b5");
@@ -31,15 +32,32 @@ public class SoulPointsManager {
     private final LamDeathPenalties plugin;
     private final Gson gson;
     private final File dataFile;
+    private final AtomicBoolean dirty = new AtomicBoolean(false);
     Map<UUID, PlayerSoulData> playerData;  // Package-private for SoulPointsCommand access
-    
+
     public SoulPointsManager(LamDeathPenalties plugin) {
         this.plugin = plugin;
         this.gson = new GsonBuilder().setPrettyPrinting().create();
         this.dataFile = new File(plugin.getDataFolder(), "playerdata.json");
         this.playerData = new ConcurrentHashMap<>();
         loadPlayerData();
+        startAutoSave();
         plugin.getYskLib().logDebug(plugin, "SoulPointsManager initialized with " + playerData.size() + " players");
+    }
+
+    private void startAutoSave() {
+        // Flush dirty data to disk every 30 seconds async
+        plugin.getFoliaLib().getImpl().runTimerAsync(task -> flushIfDirty(), 600L, 600L);
+    }
+
+    private void markDirty() {
+        dirty.set(true);
+    }
+
+    public void flushIfDirty() {
+        if (dirty.compareAndSet(true, false)) {
+            markDirty();
+        }
     }
     
     public boolean hasData(UUID playerId) {
@@ -57,7 +75,7 @@ public class SoulPointsManager {
             int startingPoints = plugin.getConfig().getInt("soul-points.starting", 10);
             data = new PlayerSoulData(startingPoints, System.currentTimeMillis(), 0);
             playerData.put(playerId, data);
-            savePlayerData();
+            markDirty();
             plugin.getYskLib().logDebug(plugin, "Created new player data for " + playerId + " with " + startingPoints + " soul points");
         }
         return data.soulPoints;
@@ -109,7 +127,7 @@ public class SoulPointsManager {
             refreshPlayerMaxHealth(playerId);
         }
         
-        savePlayerData();
+        markDirty();
         plugin.getYskLib().logDebug(plugin, "Max soul points for " + playerId + " changed: " + oldMax + " -> " + clampedMax + " (minimum: " + minimumMax + ", config max: " + configMax + ")");
     }
     
@@ -154,7 +172,7 @@ public class SoulPointsManager {
             data.soulPoints = points;
         }
         playerData.put(playerId, data);
-        savePlayerData();
+        markDirty();
 
         refreshPlayerMaxHealth(playerId);
 
@@ -568,7 +586,7 @@ public class SoulPointsManager {
         if ("active-time".equals(plugin.getRecoveryMode()) && data.sessionStartTime == 0L) {
             data.sessionStartTime = System.currentTimeMillis();
             plugin.getYskLib().logDebug(plugin, "Started active-time session for " + playerId);
-            savePlayerData();
+            markDirty();
         }
         
         // Start max soul points session
@@ -576,7 +594,7 @@ public class SoulPointsManager {
         if ("active-time".equals(maxRecoveryMode) && data.maxSessionStartTime == 0L) {
             data.maxSessionStartTime = System.currentTimeMillis();
             plugin.getYskLib().logDebug(plugin, "Started active-time max soul points session for " + playerId);
-            savePlayerData();
+            markDirty();
         }
     }
 
@@ -606,7 +624,7 @@ public class SoulPointsManager {
             plugin.getYskLib().logDebug(plugin, "Ended active-time max soul points session for " + playerId + " (+" + (maxSessionDuration / 1000L) + "s)");
         }
         
-        savePlayerData();
+        markDirty();
     }
 
     public void updatePlayTime(UUID playerId, long sessionTime) {
@@ -619,7 +637,7 @@ public class SoulPointsManager {
             if (data.sessionStartTime > 0L) {
                 data.sessionStartTime = System.currentTimeMillis();
             }
-            savePlayerData();
+            markDirty();
         }
     }
 
@@ -668,7 +686,7 @@ public class SoulPointsManager {
                 data.sessionStartTime = currentTime;
             }
 
-            savePlayerData();
+            markDirty();
             plugin.getYskLib().logDebug(plugin, "Active-time recovery for " + playerId + ": +" + recoveries + " point(s)");
             return;
         }
@@ -681,7 +699,7 @@ public class SoulPointsManager {
             int newPoints = Math.min(maxPoints, data.soulPoints + recoveryCount);
             data.soulPoints = newPoints;
             data.lastRecoveryTime = currentTime;
-            savePlayerData();
+            markDirty();
         }
     }
     
@@ -699,7 +717,7 @@ public class SoulPointsManager {
         data.sessionStartTime = 0L;
         data.maxSessionStartTime = 0L;
         
-        savePlayerData();
+        markDirty();
         plugin.getYskLib().logDebug(plugin, "Reset recovery timers for " + playerId);
     }
     
@@ -754,7 +772,7 @@ public class SoulPointsManager {
                 data.maxSessionStartTime = currentTime;
             }
 
-            savePlayerData();
+            markDirty();
             plugin.getYskLib().logDebug(plugin, "Active-time max soul points recovery for " + playerId + ": +" + recoveries + " max point(s)");
             return;
         }
@@ -768,7 +786,7 @@ public class SoulPointsManager {
             int newMax = Math.min(configMax, currentMax + recoveryCount);
             setMaxSoulPoints(playerId, newMax);
             data.lastMaxRecoveryTime = currentTime;
-            savePlayerData();
+            markDirty();
             plugin.getYskLib().logDebug(plugin, "Real-time max soul points recovery for " + playerId + ": +" + (newMax - currentMax) + " max point(s)");
         }
     }
