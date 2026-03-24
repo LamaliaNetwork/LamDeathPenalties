@@ -116,6 +116,18 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
             recoveryScheduler.onPlayerJoin(event.getPlayer().getUniqueId());
         }
         soulPointsManager.refreshPlayerMaxHealth(event.getPlayer());
+
+        // Send soul points status on join
+        org.yusaki.lib.modules.MessageManager mm = getMessageManager();
+        if (mm != null) {
+            Player player = event.getPlayer();
+            int current = soulPointsManager.getSoulPoints(player.getUniqueId());
+            int max = soulPointsManager.getMaxSoulPoints(player.getUniqueId());
+            mm.sendMessage(this, player, "join-status",
+                    org.yusaki.lib.modules.MessageManager.placeholders(
+                            "current", String.valueOf(current),
+                            "max", String.valueOf(max)));
+        }
     }
 
     @EventHandler

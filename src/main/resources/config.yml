@@ -52,6 +52,7 @@ soul-points:
     reduction-per-kill: 1  # How many max soul points to reduce per player kill
     minimum: 0             # Minimum max soul points (0 = can go down to 0, always capped at 0)
                            # Set to 1 or higher to ensure players can always recover some soul points
+    critical-threshold: 2  # Warn player when max soul points drops to this level or below
     regeneration:
       enabled: true        # Enable max soul points regeneration over time
       mode: "real-time"    # Options: "real-time" or "active-time" (similar to regular recovery)
@@ -270,6 +271,36 @@ messages:
   # Money transfer messages
   killer-money-received:
     - "&a✦ You received {amount} from {victim}!"
+
+  # Help messages
+  help-header:
+    - "&8&m                                                "
+    - "&6Soul Points Help"
+    - "&8&m                                                "
+  help-about:
+    - "&7Soul points represent your spiritual resilience. You start with &f{max}&7."
+    - "&7Dying reduces your soul points, increasing penalties."
+  help-death:
+    - "&7&lOn death: &rLose 1 soul point. Lower points = more items dropped,"
+    - "&7more money lost, and reduced max health."
+  help-recovery:
+    - "&7Soul points recover over time. Use &f/lmdp&7 to check status."
+    - "&7Killing other players reduces your &cmax&7 soul points."
+  help-commands:
+    - "&e/lmdp &7- View your soul points"
+    - "&e/lmdp preview &7- Preview penalties at each level"
+    - "&e/lmdp help &7- Show this help"
+
+  # Preview
+  preview-header:
+    - "&6--- Penalty Preview ---"
+  preview-entry: "&7Level &f{level}&7: &c{drop_percent}%&7 items | Money: &c{money}&7 | Health: &c{health}"
+
+  # Join status
+  join-status: "&8[&6Soul&8] &7You have &f{current}&7/&f{max} &7soul points. Use &e/lmdp&7 for details."
+
+  # Critical warning
+  max-critical-warning: "&c\u26a0 Warning: Your max soul points dropped to &f{max}&c! Recovery will be harder."
 
   # Display values
   display-yes: "Yes"

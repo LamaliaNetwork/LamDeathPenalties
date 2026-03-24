@@ -146,6 +146,19 @@ public class SoulPointsManager {
         if (newMax != currentMax) {
             setMaxSoulPoints(playerId, newMax);
             plugin.getYskLib().logDebug(plugin, "Reduced max soul points for " + playerId + ": " + currentMax + " -> " + newMax);
+
+            // Critical max warning
+            int criticalThreshold = plugin.getConfig().getInt("soul-points.max-soul-points.critical-threshold", 2);
+            if (newMax <= criticalThreshold && newMax > 0) {
+                Player onlinePlayer = Bukkit.getPlayer(playerId);
+                if (onlinePlayer != null) {
+                    org.yusaki.lib.modules.MessageManager mm = plugin.getMessageManager();
+                    if (mm != null) {
+                        mm.sendMessage(plugin, onlinePlayer, "max-critical-warning",
+                                org.yusaki.lib.modules.MessageManager.placeholders("max", String.valueOf(newMax)));
+                    }
+                }
+            }
         }
     }
     

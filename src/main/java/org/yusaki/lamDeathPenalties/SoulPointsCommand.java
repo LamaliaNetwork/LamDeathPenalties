@@ -76,6 +76,11 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
                 return handleCheckCommand(sender, args);
             case "reload":
                 return handleReloadCommand(sender);
+            case "help":
+                sendHelpMessage(sender);
+                return true;
+            case "preview":
+                return handlePreview(sender);
             default:
                 sendHelpMessage(sender);
                 return true;
@@ -597,19 +602,52 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
     
     private void sendHelpMessage(CommandSender sender) {
         org.yusaki.lib.modules.MessageManager messageManager = plugin.getMessageManager();
+        int configMax = plugin.getConfig().getInt("soul-points.max", 10);
+
+        messageManager.sendMessageList(plugin, sender, "help-header");
+        messageManager.sendMessageList(plugin, sender, "help-about",
+                placeholders("max", String.valueOf(configMax)));
+        messageManager.sendMessageList(plugin, sender, "help-death");
+        messageManager.sendMessageList(plugin, sender, "help-recovery");
+        messageManager.sendMessageList(plugin, sender, "help-commands");
+
         if (sender.hasPermission("lmdp.admin")) {
             messageManager.sendMessageList(plugin, sender, "help-menu");
-        } else {
-            // Show basic help without admin commands
-            List<String> helpLines = messageManager.getMessageList(plugin, "help-menu");
-            for (String line : helpLines) {
-                // Skip admin-only lines
-                if (line.contains("set") || line.contains("give") || line.contains("take") || line.contains("reload")) {
-                    continue;
-                }
-                sender.sendMessage(line);
-            }
         }
+    }
+
+    private boolean handlePreview(CommandSender sender) {
+        org.yusaki.lib.modules.MessageManager messageManager = plugin.getMessageManager();
+        int maxPoints = plugin.getConfig().getInt("soul-points.max", 10);
+
+        messageManager.sendMessageList(plugin, sender, "preview-header");
+
+        for (int level = maxPoints; level >= 0; level--) {
+            SoulPointsManager.DropRates rates = soulPointsManager.getDropRates(level);
+            if (rates == null) continue;
+
+            String money;
+            if (rates.moneyMode == SoulPointsManager.DropRates.MoneyPenaltyMode.PERCENT) {
+                money = String.format("%.0f%%", rates.moneyPenalty);
+            } else {
+                money = String.format("%.0f", rates.moneyPenalty);
+            }
+
+            String health;
+            if (rates.maxHealthPenalty <= 0.0) {
+                health = "0";
+            } else {
+                health = String.format("-%.0f hearts", rates.maxHealthPenalty);
+            }
+
+            messageManager.sendMessage(plugin, sender, "preview-entry", placeholders(
+                    "level", String.valueOf(level),
+                    "drop_percent", String.valueOf(rates.itemDrop),
+                    "money", money,
+                    "health", health
+            ));
+        }
+        return true;
     }
     
     @Override
@@ -626,9 +664,9 @@ public class SoulPointsCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length == 1) {
-            List<String> subCommands = Arrays.asList("check");
+            List<String> subCommands = Arrays.asList("check", "preview", "help");
             if (sender.hasPermission("lmdp.admin")) {
-                subCommands = Arrays.asList("set", "give", "take", "setmax", "givemax", "takemax", "check", "reload");
+                subCommands = Arrays.asList("set", "give", "take", "setmax", "givemax", "takemax", "check", "preview", "help", "reload");
             }
             
             for (String subCommand : subCommands) {
