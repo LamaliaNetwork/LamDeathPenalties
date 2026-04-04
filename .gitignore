@@ -114,3 +114,4 @@ run/
 docs/
 .claude/
 CLAUDE.md
+*.png
