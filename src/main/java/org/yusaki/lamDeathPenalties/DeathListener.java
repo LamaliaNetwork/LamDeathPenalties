@@ -14,9 +14,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
-import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.inventory.ItemStack;
@@ -108,44 +106,6 @@ public class DeathListener implements Listener {
         }
     }
 
-    // Fallback workaround for older Folia versions where PlayerRespawnEvent may not fire
-    // See: https://github.com/PaperMC/Folia/issues/105
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void onInventoryClose(InventoryCloseEvent event) {
-        if (!(event.getPlayer() instanceof Player player)) {
-            return;
-        }
-
-        if (!plugin.isSoulPointsEnabled()) {
-            return;
-        }
-
-        // Detect respawn: player inventory closes, player is alive and online with health > 0
-        if (event.getInventory().getType() == InventoryType.CRAFTING
-            && player.isOnline()
-            && !player.isDead()
-            && player.getHealth() > 0) {
-
-            // Schedule task to reapply max health penalty after respawn
-            foliaLib.getImpl().runAtEntityLater(player, task -> {
-                if (player.isOnline()) {
-                    soulPointsManager.refreshPlayerMaxHealth(player);
-                    plugin.getYskLib().logDebug(plugin, "Reapplied max health penalty after respawn for " + player.getName());
-                }
-            }, 1L); // 1 tick delay
-
-            // Fire deferred death-penalty commands (titles etc.) after the death
-            // screen dismisses, so they render on the gameplay screen.
-            if (player.hasMetadata(METADATA_PENDING_COMMANDS)) {
-                player.removeMetadata(METADATA_PENDING_COMMANDS, plugin);
-                foliaLib.getImpl().runAtEntityLater(player, task -> {
-                    if (player.isOnline()) {
-                        soulPointsManager.firePenaltyCommands(player);
-                    }
-                }, 10L); // 0.5s delay so the death overlay finishes dismissing
-            }
-        }
-    }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlayerKill(PlayerDeathEvent event) {
