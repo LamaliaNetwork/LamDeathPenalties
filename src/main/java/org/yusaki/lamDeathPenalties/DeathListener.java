@@ -80,34 +80,6 @@ public class DeathListener implements Listener {
         });
     }
     
-    // Polling safety net: PlayerRespawnEvent and InventoryCloseEvent don't fire
-    // reliably on pure Folia (see PaperMC/Folia#105). Poll for the player being
-    // alive post-death and fire deferred commands / reapply max health when they are.
-    private void scheduleDeferredCommandPolling(Player player) {
-        final int[] iterations = {0};
-        final int maxIterations = 120; // 120 * 5 ticks = 30s cap
-
-        foliaLib.getImpl().runAtEntityTimer(player, (task) -> {
-            iterations[0]++;
-
-            // Bail if offline, timed out, or metadata already consumed by an event handler
-            if (!player.isOnline()
-                || iterations[0] > maxIterations
-                || !player.hasMetadata(METADATA_PENDING_COMMANDS)) {
-                task.cancel();
-                return;
-            }
-
-            if (!player.isDead() && player.getHealth() > 0) {
-                player.removeMetadata(METADATA_PENDING_COMMANDS, plugin);
-                soulPointsManager.refreshPlayerMaxHealth(player);
-                soulPointsManager.firePenaltyCommands(player);
-                plugin.getYskLib().logDebug(plugin, "Deferred commands fired via polling for " + player.getName());
-                task.cancel();
-            }
-        }, 10L, 5L); // wait 10 ticks after death, then poll every 5 ticks
-    }
-
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerRespawn(PlayerRespawnEvent event) {
         Player player = event.getPlayer();
@@ -305,11 +277,8 @@ public class DeathListener implements Listener {
         // Get current soul points after reduction
         int currentSoulPoints = soulPointsManager.getSoulPoints(player.getUniqueId());
 
-        // Flag for deferred tier-command execution after respawn. Multiple hooks
-        // may consume it: PlayerRespawnEvent (Paper/Canvas), InventoryCloseEvent
-        // (older Folia workaround), or the polling task below (pure Folia).
+        // Flag for deferred tier-command execution after respawn (see onInventoryClose)
         player.setMetadata(METADATA_PENDING_COMMANDS, new FixedMetadataValue(plugin, true));
-        scheduleDeferredCommandPolling(player);
 
         plugin.getYskLib().logDebug(plugin, "Soul points for " + player.getName() + ": " + oldSoulPoints + " -> " + currentSoulPoints);
 
