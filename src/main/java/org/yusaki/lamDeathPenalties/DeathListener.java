@@ -15,6 +15,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
@@ -79,7 +80,35 @@ public class DeathListener implements Listener {
         });
     }
     
-    // Workaround for Folia - PlayerRespawnEvent doesn't fire on Folia
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerRespawn(PlayerRespawnEvent event) {
+        Player player = event.getPlayer();
+        if (!plugin.isSoulPointsEnabled()) {
+            return;
+        }
+
+        plugin.getYskLib().logDebug(plugin, "PlayerRespawnEvent fired for " + player.getName());
+
+        // Reapply max health penalty after respawn (attributes reset on respawn)
+        foliaLib.getImpl().runAtEntityLater(player, task -> {
+            if (player.isOnline()) {
+                soulPointsManager.refreshPlayerMaxHealth(player);
+            }
+        }, 1L);
+
+        // Fire deferred death-penalty commands (titles etc.) so they render on
+        // the gameplay screen instead of behind the death overlay.
+        if (player.hasMetadata(METADATA_PENDING_COMMANDS)) {
+            player.removeMetadata(METADATA_PENDING_COMMANDS, plugin);
+            foliaLib.getImpl().runAtEntityLater(player, task -> {
+                if (player.isOnline()) {
+                    soulPointsManager.firePenaltyCommands(player);
+                }
+            }, 10L);
+        }
+    }
+
+    // Fallback workaround for older Folia versions where PlayerRespawnEvent may not fire
     // See: https://github.com/PaperMC/Folia/issues/105
     @EventHandler(priority = EventPriority.MONITOR)
     public void onInventoryClose(InventoryCloseEvent event) {
