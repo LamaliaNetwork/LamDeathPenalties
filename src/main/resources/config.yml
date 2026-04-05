@@ -74,8 +74,6 @@ soul-points:
       max-health:
         mode: "remove"
         amount: 5.0
-      commands:
-        - "title %player% title {\"text\":\"Soul Points Low!\",\"color\":\"yellow\"}"
     8:
       items:
         drop-percent: 20
@@ -103,8 +101,7 @@ soul-points:
         mode: "remove"
         amount: 2.0
       commands:
-        - "title %player% title {\"text\":\"Soul Points Critical!\",\"color\":\"red\"}"
-        - "title %player% subtitle {\"text\":\"Half your soul is gone...\",\"color\":\"gray\"}"
+        - "title %player% title {\"text\":\"Soul Points Low!\",\"color\":\"yellow\"}"
     4:
       items:
         drop-percent: 60
@@ -120,6 +117,9 @@ soul-points:
         drop-percent: 80
         hotbar: true
         armor: true
+      commands:
+        - "title %player% title {\"text\":\"Soul Points Critical!\",\"color\":\"red\"}"
+        - "title %player% subtitle {\"text\":\"Your soul is almost gone...\",\"color\":\"gray\"}"
     1:
       items:
         drop-percent: 90

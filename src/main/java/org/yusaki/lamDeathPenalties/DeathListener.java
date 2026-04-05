@@ -36,6 +36,7 @@ public class DeathListener implements Listener {
     private static final String METADATA_KEY = "lmdp_dropped_items";
     private static final String METADATA_KEPT_ITEMS = "lmdp_kept_items";
     private static final String METADATA_PROCESSED = "lmdp_processed";
+    private static final String METADATA_PENDING_COMMANDS = "lmdp_pending_commands";
     
     
     public DeathListener(LamDeathPenalties plugin, SoulPointsManager soulPointsManager, FoliaLib foliaLib) {
@@ -103,6 +104,17 @@ public class DeathListener implements Listener {
                     plugin.getYskLib().logDebug(plugin, "Reapplied max health penalty after respawn for " + player.getName());
                 }
             }, 1L); // 1 tick delay
+
+            // Fire deferred death-penalty commands (titles etc.) after the death
+            // screen dismisses, so they render on the gameplay screen.
+            if (player.hasMetadata(METADATA_PENDING_COMMANDS)) {
+                player.removeMetadata(METADATA_PENDING_COMMANDS, plugin);
+                foliaLib.getImpl().runAtEntityLater(player, task -> {
+                    if (player.isOnline()) {
+                        soulPointsManager.firePenaltyCommands(player);
+                    }
+                }, 10L); // 0.5s delay so the death overlay finishes dismissing
+            }
         }
     }
 
@@ -235,6 +247,9 @@ public class DeathListener implements Listener {
 
         // Get current soul points after reduction
         int currentSoulPoints = soulPointsManager.getSoulPoints(player.getUniqueId());
+
+        // Flag for deferred tier-command execution after respawn (see onInventoryClose)
+        player.setMetadata(METADATA_PENDING_COMMANDS, new FixedMetadataValue(plugin, true));
 
         plugin.getYskLib().logDebug(plugin, "Soul points for " + player.getName() + ": " + oldSoulPoints + " -> " + currentSoulPoints);
 

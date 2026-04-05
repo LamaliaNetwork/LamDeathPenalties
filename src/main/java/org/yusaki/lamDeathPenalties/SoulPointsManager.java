@@ -271,8 +271,10 @@ public class SoulPointsManager {
         plugin.getYskLib().logDebug(plugin, "setSoulPointsWithReason: Applying change - " + player.getName() + " soul points: " + oldPoints + " -> " + newPoints);
         setSoulPoints(playerId, newPoints);
 
-        // Execute commands for the new soul points level (only when decreasing)
-        if (newPoints < oldPoints) {
+        // Execute commands for the new soul points level (only when decreasing).
+        // DEATH commands are deferred to post-respawn by DeathListener so titles
+        // aren't hidden behind the death screen overlay.
+        if (newPoints < oldPoints && reason != SoulPointsChangeEvent.ChangeReason.DEATH) {
             DropRates dropRates = getDropRates(newPoints);
             if (dropRates != null && !dropRates.commands.isEmpty()) {
                 executeCommands(dropRates.commands, player);
@@ -1006,6 +1008,19 @@ public class SoulPointsManager {
 
     public double getMinimumMaxHealthPoints() {
         return MIN_MAX_HEALTH_POINTS;
+    }
+
+    /**
+     * Fire the penalty commands for the player's current soul-points tier.
+     * Used by DeathListener to run death-penalty commands after respawn,
+     * so titles render on the gameplay screen instead of behind the death overlay.
+     */
+    public void firePenaltyCommands(Player player) {
+        int currentSP = getSoulPoints(player.getUniqueId());
+        DropRates dropRates = getDropRates(currentSP);
+        if (dropRates != null && !dropRates.commands.isEmpty()) {
+            executeCommands(dropRates.commands, player);
+        }
     }
 
     private void executeCommands(List<String> commands, Player player) {
