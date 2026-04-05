@@ -237,7 +237,7 @@ public class DeathListener implements Listener {
         // Get current soul points after reduction
         int currentSoulPoints = soulPointsManager.getSoulPoints(player.getUniqueId());
 
-        // Flag for deferred tier-command execution after respawn (see onInventoryClose)
+        // Flag for deferred tier-command execution after respawn (see onPlayerRespawn)
         player.setMetadata(METADATA_PENDING_COMMANDS, new FixedMetadataValue(plugin, true));
 
         plugin.getYskLib().logDebug(plugin, "Soul points for " + player.getName() + ": " + oldSoulPoints + " -> " + currentSoulPoints);
