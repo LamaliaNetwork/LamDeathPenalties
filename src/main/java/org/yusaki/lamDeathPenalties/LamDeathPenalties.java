@@ -13,6 +13,7 @@ import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.yusaki.lamDeathPenalties.api.LamDeathPenaltiesAPI;
 import org.yusaki.lamDeathPenalties.api.LamDeathPenaltiesAPIImpl;
+import org.yusaki.lib.config.ConfigUpdateOptions;
 import org.yusaki.lib.YskLib;
 
 public final class LamDeathPenalties extends JavaPlugin implements Listener {
@@ -42,7 +43,7 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
 
         // Save default config and update with YskLib
         saveDefaultConfig();
-        yskLib.updateConfig(this);
+        updatePluginConfig();
 
         // Load messages via YskLib
         yskLib.loadMessages(this);
@@ -183,7 +184,7 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
 
         // Reload configuration using YskLib updater
         if (yskLib != null) {
-            yskLib.updateConfig(this);
+            updatePluginConfig();
             yskLib.loadMessages(this);
             yskLib.logDebug(this, "Config and messages reloaded");
         } else {
@@ -208,6 +209,18 @@ public final class LamDeathPenalties extends JavaPlugin implements Listener {
 
     public boolean isSoulPointsEnabled() {
         return soulPointsEnabled;
+    }
+
+    private void updatePluginConfig() {
+        yskLib.updateConfig(this, ConfigUpdateOptions.builder()
+                .fileName("config.yml")
+                .resourcePath("config.yml")
+                .versionPath("version")
+                .reloadAction(file -> reloadConfig())
+                .resetAction(file -> saveDefaultConfig())
+                // Merge newly added message keys even when the config version is unchanged.
+                .skipMergeIfVersionMatches(false)
+                .build());
     }
 
     private void loadSettings() {
