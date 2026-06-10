@@ -164,27 +164,34 @@ money-transfer:
 
 ## PlaceholderAPI Placeholders
 
+The expansion identifier is `soulpoints` — all placeholders use `%soulpoints_<placeholder>%`.
+
 ### Soul Points
-| Placeholder                                    | Description                                  |
-| ---------------------------------------------- | -------------------------------------------- |
-| `%lamdeathpenalties_current_points%`           | Current soul points                          |
-| `%lamdeathpenalties_max_points%`               | Current maximum soul points (personal)       |
-| `%lamdeathpenalties_config_max_points%`        | Config maximum soul points (default)         |
+| Placeholder                              | Description                                      | Example      |
+| ---------------------------------------- | ------------------------------------------------ | ------------ |
+| `%soulpoints_current%`                   | Current soul points                              | `7`          |
+| `%soulpoints_max%`                       | Current maximum soul points (personal)           | `10`         |
+| `%soulpoints_max_personal%`              | Alias of `max`                                   | `10`         |
+| `%soulpoints_max_config%`                | Config maximum soul points (default)             | `10`         |
+| `%soulpoints_percentage%`                | Current/max percentage (0–100)                   | `70`         |
+| `%soulpoints_progress_bar%`              | Visual progress bar                              | `███████░░░` |
 
 ### Next Death Penalties
-| Placeholder                                    | Description                                  |
-| ---------------------------------------------- | -------------------------------------------- |
-| `%lamdeathpenalties_next_item_drop%`           | Item drop % at current level                 |
-| `%lamdeathpenalties_next_hotbar_drop%`         | Hotbar vulnerable? (true/false)              |
-| `%lamdeathpenalties_next_armor_drop%`          | Armor vulnerable? (true/false)               |
-| `%lamdeathpenalties_next_money_drop%`          | Money penalty at current level               |
-| `%lamdeathpenalties_next_max_health%`          | Max health penalty at current level          |
+| Placeholder                              | Description                                      | Example |
+| ---------------------------------------- | ------------------------------------------------ | ------- |
+| `%soulpoints_next_item_drop%`            | Item drop % at current level                     | `35`    |
+| `%soulpoints_next_hotbar_drop%`          | Hotbar vulnerable? (true/false)                  | `false` |
+| `%soulpoints_next_armor_drop%`           | Armor vulnerable? (true/false)                   | `true`  |
 
 ### Recovery Information
-| Placeholder                                    | Description                                  |
-| ---------------------------------------------- | -------------------------------------------- |
-| `%lamdeathpenalties_time_until_next_recovery%` | Time until next soul point recovery          |
-| `%lamdeathpenalties_recovery_mode%`            | Current recovery mode (real-time/active)     |
+| Placeholder                              | Description                                      | Example      |
+| ---------------------------------------- | ------------------------------------------------ | ------------ |
+| `%soulpoints_recovery_time%`             | Time until next soul point recovery (formatted)  | `2h 15m 30s` |
+| `%soulpoints_recovery_time_seconds%`     | Time until next recovery, in seconds             | `8130`       |
+| `%soulpoints_max_recovery_time%`         | Time until next max-points recovery (formatted)  | `23h 59m 10s`|
+| `%soulpoints_max_recovery_time_seconds%` | Time until next max-points recovery, in seconds  | `86350`      |
+
+`%soulpoints_recovery_time%` and `%soulpoints_max_recovery_time%` show `Ready` when no recovery is pending.
 
 ## Configuration Validation
 
