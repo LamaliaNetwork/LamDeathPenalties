@@ -64,8 +64,12 @@ soul-points:
 | `/lmdp givemax <player> <amount>`  | `lmdp.admin`                 | Increase player's max soul points              |
 | `/lmdp takemax <player> <amount>`  | `lmdp.admin`                 | Decrease player's max soul points              |
 | `/lmdp reload`                     | `lmdp.admin`                 | Reload config and refresh penalties            |
+| `/lmdp preview`                    | *(default)*                  | Preview resolved penalties for every level     |
+| `/lmdp help`                       | *(default)*                  | Show command help                              |
 
-**Aliases:** `/soulpoints`, `/sp`
+**Command aliases:** `/dp`, `/deathpenalties`, `/soulpoints`
+
+**Subcommand synonyms:** `view` = `check`, `add` = `give`, `remove` = `take`, `addmax` = `givemax`, `removemax` = `takemax`
 
 ## Permissions
 
@@ -81,13 +85,13 @@ soul-points:
 
 - Paper or Folia 1.21+
 - Java 21
-- [YskLib](https://github.com/YusakiDev/YskLib/releases) **1.6.9+** (required)
+- [YskLib](https://github.com/YusakiDev/YskLib/releases) **1.8.0+** (required)
 - [Vault](https://www.spigotmc.org/resources/vault.34315/) (optional, money penalties)
 - [PlaceholderAPI](https://www.spigotmc.org/resources/placeholderapi.6245/) (optional)
 
 ### Installation
 
-1. Drop [YskLib 1.6.9+](https://github.com/YusakiDev/YskLib/releases) into `plugins/`.
+1. Drop [YskLib 1.8.0+](https://github.com/YusakiDev/YskLib/releases) into `plugins/`.
 2. Drop LamDeathPenalties into `plugins/` and start the server.
 3. Edit `plugins/LamDeathPenalties/config.yml`:
    - Set `soul-points.max` and `soul-points.starting`
